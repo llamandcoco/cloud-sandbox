@@ -141,41 +141,15 @@ jobs:
           cat trivy_output.txt
         continue-on-error: true
 
-      - name: Terragrunt Plan (Changed Stacks Only)
-        id: plan
-        if: github.event_name == 'pull_request'
-        run: |
-          CHANGED_STACKS='${{ steps.changed-stacks.outputs.changed_stacks }}'
-
-          if [ -z "$CHANGED_STACKS" ]; then
-            echo "No stacks changed, skipping Terragrunt plan" > plan_output.txt
-          else
-            echo "Running Terragrunt plan on changed stacks:" > plan_output.txt
-            echo "$CHANGED_STACKS" >> plan_output.txt
-            echo "" >> plan_output.txt
-
-            # Run terragrunt plan on each changed stack
-            while IFS= read -r stack_path; do
-              if [ -d "$stack_path" ] && [ -n "$stack_path" ] && [ -f "$stack_path/terragrunt.hcl" ]; then
-                echo "=== Planning $stack_path ===" >> plan_output.txt
-                cd "$stack_path"
-
-                # Run terragrunt plan (will fail without AWS credentials, but that's okay for syntax check)
-                terragrunt plan -no-color 2>&1 | head -100 >> "$GITHUB_WORKSPACE/plan_output.txt" || true
-
-                cd "$GITHUB_WORKSPACE"
-                echo "" >> plan_output.txt
-              fi
-            done <<< "$CHANGED_STACKS"
-          fi
-
-          cat plan_output.txt
-        continue-on-error: true
-        env:
-          # Mock AWS credentials for plan validation
-          AWS_ACCESS_KEY_ID: "mock"
-          AWS_SECRET_ACCESS_KEY: "mock"
-          AWS_DEFAULT_REGION: "ap-northeast-2"
+      # Note: Terragrunt plan requires AWS credentials
+      # To enable, configure OIDC or add AWS credentials to GitHub Secrets
+      # - name: Terragrunt Plan (Changed Stacks Only)
+      #   id: plan
+      #   if: github.event_name == 'pull_request'
+      #   run: |
+      #     # Plan implementation here
+      #   env:
+      #     AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
 
       - name: Comment PR with Results
         if: github.event_name == 'pull_request'
@@ -221,22 +195,10 @@ jobs:
               trivyMedium = (trivyResults.match(/\(MEDIUM\):/g) || []).length;
             }
 
-            // Read Plan output
-            let planResults = 'No plan output available';
-            const planPath = path.join(process.env.GITHUB_WORKSPACE, 'plan_output.txt');
-            if (fs.existsSync(planPath)) {
-              planResults = fs.readFileSync(planPath, 'utf8').trim() || 'No plan output';
-              // Truncate if too long
-              if (planResults.length > 5000) {
-                planResults = planResults.substring(0, 5000) + '\n\n... (output truncated)';
-              }
-            }
-
             // Determine overall status
             const fmtStatus = '${{ steps.fmt.outcome }}';
             const validateStatus = '${{ steps.validate-hcl.outcome }}';
             const trivyStatus = (trivyCritical > 0 || trivyHigh > 0) ? 'failure' : 'success';
-            const planStatus = '${{ steps.plan.outcome }}';
 
             const allPassed = fmtStatus === 'success' &&
                              validateStatus === 'success' &&
@@ -254,7 +216,6 @@ jobs:
             | 🖌 **HCL Format** | ${getStatusIcon(fmtStatus)} ${fmtStatus} | - | All HCL files |
             | 🤖 **HCL Validate** | ${getStatusIcon(validateStatus)} ${validateStatus} | - | All HCL files |
             | 🔒 **Trivy** | ${getStatusIcon(trivyStatus)} ${trivyStatus} | ${trivyCritical} critical, ${trivyHigh} high, ${trivyMedium} medium | ${changedStacks} |
-            | 📝 **Terragrunt Plan** | ${getStatusIcon(planStatus)} ${planStatus} | - | ${changedStacks} |
 
             ---
 
@@ -266,13 +227,8 @@ jobs:
             \`\`\`
             </details>
 
-            <details>
-            <summary>📝 Terragrunt Plan Output</summary>
-
-            \`\`\`
-            ${planResults}
-            \`\`\`
-            </details>
+            ---
+            💡 **Note:** Terragrunt plan is disabled. To enable, configure AWS OIDC credentials in the workflow.
 
             ---
             <sub>👤 Pusher: @${{ github.actor }} | 🔄 Action: \`${{ github.event_name }}\` | ⚙️ Workflow: \`${{ github.workflow }}\`</sub>`;
