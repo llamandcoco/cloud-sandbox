@@ -45,7 +45,7 @@ inputs = {
 
   # Security Groups - use module defaults
   workload_security_group_ingress = []
-  workload_security_group_egress = []
+  workload_security_group_egress  = []
 
   # Tags
   tags = merge(
