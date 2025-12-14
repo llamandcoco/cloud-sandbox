@@ -1,0 +1,289 @@
+name: Terragrunt Check
+
+on:
+  pull_request:
+    paths:
+      - 'aws/**'
+      - 'root.hcl'
+  push:
+    branches:
+      - main
+    paths:
+      - 'aws/**'
+      - 'root.hcl'
+
+jobs:
+  terragrunt-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history to detect changes
+
+      - name: Detect changed stacks
+        id: changed-stacks
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # For PRs, compare with base branch
+            git fetch origin ${{ github.base_ref }}
+            CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          else
+            # For pushes, compare with previous commit
+            CHANGED_FILES=$(git diff --name-only HEAD~1...HEAD)
+          fi
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          echo ""
+
+          # Extract unique stack paths (directories containing terragrunt.hcl)
+          CHANGED_STACKS=""
+          while IFS= read -r file; do
+            if [[ "$file" == *.hcl ]] || [[ "$file" == *.tf ]]; then
+              dir=$(dirname "$file")
+              # Find the closest directory with terragrunt.hcl
+              while [[ "$dir" != "." ]] && [[ "$dir" != "/" ]]; do
+                if [ -f "$dir/terragrunt.hcl" ]; then
+                  CHANGED_STACKS="$CHANGED_STACKS$dir"$'\n'
+                  break
+                fi
+                dir=$(dirname "$dir")
+              done
+            fi
+          done <<< "$CHANGED_FILES"
+
+          # Get unique stacks
+          CHANGED_STACKS=$(echo "$CHANGED_STACKS" | sort -u | grep -v '^$' || true)
+
+          echo "Changed stacks:"
+          echo "$CHANGED_STACKS"
+
+          # Convert to space-separated list for iteration
+          echo "changed_stacks<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED_STACKS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ~1.7
+          terraform_wrapper: false
+
+      - name: Setup Terragrunt
+        run: |
+          TERRAGRUNT_VERSION="0.55.1"
+          wget -q "https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64"
+          chmod +x terragrunt_linux_amd64
+          sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
+          terragrunt --version
+
+      - name: Terragrunt Format Check
+        id: fmt
+        run: |
+          echo "Checking HCL file formatting..."
+          terragrunt hclfmt --terragrunt-check --terragrunt-diff
+        continue-on-error: true
+
+      - name: Validate HCL Files
+        id: validate-hcl
+        run: |
+          echo "Validating Terragrunt HCL files..."
+          # Check root.hcl
+          if [ -f "root.hcl" ]; then
+            echo "Validating root.hcl"
+            terragrunt hclfmt --check root.hcl || exit 1
+          fi
+
+          # Find and validate all terragrunt.hcl files
+          find aws -name "terragrunt.hcl" -type f | while read -r file; do
+            echo "Validating $file"
+            terragrunt hclfmt --check "$file" || exit 1
+          done
+        continue-on-error: true
+
+      - name: Setup Trivy
+        run: |
+          TRIVY_VERSION="0.68.1"
+          DOWNLOAD_URL="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          echo "Downloading Trivy from $DOWNLOAD_URL"
+          wget -q "$DOWNLOAD_URL" -O trivy.tar.gz
+          tar -xzf trivy.tar.gz
+          sudo mv trivy /usr/local/bin/
+          trivy --version
+
+      - name: Run Trivy (Changed Stacks Only)
+        id: trivy
+        run: |
+          CHANGED_STACKS='${{ steps.changed-stacks.outputs.changed_stacks }}'
+
+          if [ -z "$CHANGED_STACKS" ]; then
+            echo "No stacks changed, skipping Trivy" > trivy_output.txt
+          else
+            echo "Running Trivy on changed stacks:" > trivy_output.txt
+            echo "$CHANGED_STACKS" >> trivy_output.txt
+            echo "" >> trivy_output.txt
+
+            # Run trivy on each changed stack
+            while IFS= read -r stack_path; do
+              if [ -d "$stack_path" ] && [ -n "$stack_path" ]; then
+                echo "=== Scanning $stack_path ===" >> trivy_output.txt
+                trivy config "$stack_path" --severity MEDIUM,HIGH,CRITICAL --exit-code 0 --quiet >> trivy_output.txt 2>&1 || true
+                echo "" >> trivy_output.txt
+              fi
+            done <<< "$CHANGED_STACKS"
+          fi
+
+          cat trivy_output.txt
+        continue-on-error: true
+
+      - name: Terragrunt Plan (Changed Stacks Only)
+        id: plan
+        if: github.event_name == 'pull_request'
+        run: |
+          CHANGED_STACKS='${{ steps.changed-stacks.outputs.changed_stacks }}'
+
+          if [ -z "$CHANGED_STACKS" ]; then
+            echo "No stacks changed, skipping Terragrunt plan" > plan_output.txt
+          else
+            echo "Running Terragrunt plan on changed stacks:" > plan_output.txt
+            echo "$CHANGED_STACKS" >> plan_output.txt
+            echo "" >> plan_output.txt
+
+            # Run terragrunt plan on each changed stack
+            while IFS= read -r stack_path; do
+              if [ -d "$stack_path" ] && [ -n "$stack_path" ] && [ -f "$stack_path/terragrunt.hcl" ]; then
+                echo "=== Planning $stack_path ===" >> plan_output.txt
+                cd "$stack_path"
+
+                # Run terragrunt plan (will fail without AWS credentials, but that's okay for syntax check)
+                terragrunt plan -no-color 2>&1 | head -100 >> "$GITHUB_WORKSPACE/plan_output.txt" || true
+
+                cd "$GITHUB_WORKSPACE"
+                echo "" >> plan_output.txt
+              fi
+            done <<< "$CHANGED_STACKS"
+          fi
+
+          cat plan_output.txt
+        continue-on-error: true
+        env:
+          # Mock AWS credentials for plan validation
+          AWS_ACCESS_KEY_ID: "mock"
+          AWS_SECRET_ACCESS_KEY: "mock"
+          AWS_DEFAULT_REGION: "ap-northeast-2"
+
+      - name: Comment PR with Results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Helper function to get status icon
+            const getStatusIcon = (outcome) => {
+              switch(outcome) {
+                case 'success': return '✅';
+                case 'failure': return '❌';
+                case 'skipped': return '⏭️';
+                default: return '❓';
+              }
+            };
+
+            // Helper function to parse changed stacks
+            const getChangedStacks = () => {
+              const changedStacks = '${{ steps.changed-stacks.outputs.changed_stacks }}';
+              if (!changedStacks || changedStacks.trim() === '') {
+                return 'None';
+              }
+              return changedStacks.split('\n')
+                .filter(s => s.trim())
+                .map(s => `\`${s}\``)
+                .join(', ');
+            };
+
+            // Read Trivy output and count issues
+            let trivyResults = 'No issues found or Trivy did not run';
+            let trivyCritical = 0;
+            let trivyHigh = 0;
+            let trivyMedium = 0;
+            const trivyPath = path.join(process.env.GITHUB_WORKSPACE, 'trivy_output.txt');
+            if (fs.existsSync(trivyPath)) {
+              trivyResults = fs.readFileSync(trivyPath, 'utf8').trim() || 'No issues found';
+              trivyCritical = (trivyResults.match(/\(CRITICAL\):/g) || []).length;
+              trivyHigh = (trivyResults.match(/\(HIGH\):/g) || []).length;
+              trivyMedium = (trivyResults.match(/\(MEDIUM\):/g) || []).length;
+            }
+
+            // Read Plan output
+            let planResults = 'No plan output available';
+            const planPath = path.join(process.env.GITHUB_WORKSPACE, 'plan_output.txt');
+            if (fs.existsSync(planPath)) {
+              planResults = fs.readFileSync(planPath, 'utf8').trim() || 'No plan output';
+              // Truncate if too long
+              if (planResults.length > 5000) {
+                planResults = planResults.substring(0, 5000) + '\n\n... (output truncated)';
+              }
+            }
+
+            // Determine overall status
+            const fmtStatus = '${{ steps.fmt.outcome }}';
+            const validateStatus = '${{ steps.validate-hcl.outcome }}';
+            const trivyStatus = (trivyCritical > 0 || trivyHigh > 0) ? 'failure' : 'success';
+            const planStatus = '${{ steps.plan.outcome }}';
+
+            const allPassed = fmtStatus === 'success' &&
+                             validateStatus === 'success' &&
+                             trivyStatus === 'success';
+
+            const changedStacks = getChangedStacks();
+
+            const output = `## 🔍 Terragrunt Check Results
+
+            ### 📊 Summary
+            ${allPassed ? '✅ **All checks passed!**' : '🔴 **Some checks failed**'}
+
+            | Check | Status | Issues | Scope |
+            |-------|--------|--------|-------|
+            | 🖌 **HCL Format** | ${getStatusIcon(fmtStatus)} ${fmtStatus} | - | All HCL files |
+            | 🤖 **HCL Validate** | ${getStatusIcon(validateStatus)} ${validateStatus} | - | All HCL files |
+            | 🔒 **Trivy** | ${getStatusIcon(trivyStatus)} ${trivyStatus} | ${trivyCritical} critical, ${trivyHigh} high, ${trivyMedium} medium | ${changedStacks} |
+            | 📝 **Terragrunt Plan** | ${getStatusIcon(planStatus)} ${planStatus} | - | ${changedStacks} |
+
+            ---
+
+            <details>
+            <summary>🔒 Trivy Security Details (${trivyCritical + trivyHigh + trivyMedium} issue(s))</summary>
+
+            \`\`\`
+            ${trivyResults}
+            \`\`\`
+            </details>
+
+            <details>
+            <summary>📝 Terragrunt Plan Output</summary>
+
+            \`\`\`
+            ${planResults}
+            \`\`\`
+            </details>
+
+            ---
+            <sub>👤 Pusher: @${{ github.actor }} | 🔄 Action: \`${{ github.event_name }}\` | ⚙️ Workflow: \`${{ github.workflow }}\`</sub>`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Terragrunt Status Check
+        if: steps.fmt.outcome == 'failure' || steps.validate-hcl.outcome == 'failure'
+        run: exit 1
