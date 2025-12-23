@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  localstack:
+    image: localstack/localstack:latest
+    container_name: chatbot-localstack
+    ports:
+      - "4566:4566"  # LocalStack gateway
+      - "4510-4559:4510-4559"  # External services port range
+    environment:
+      - SERVICES=sqs,events,lambda
+      - DEBUG=1
+      - PERSISTENCE=0
+      - LAMBDA_EXECUTOR=docker
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "../scripts/localstack-init:/etc/localstack/init/ready.d"
+    networks:
+      - chatbot-local
+
+networks:
+  chatbot-local:
+    driver: bridge
