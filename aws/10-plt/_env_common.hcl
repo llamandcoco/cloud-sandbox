@@ -31,4 +31,5 @@ locals {
   lambda_ref           = "main"
   eventbridge_ref      = "main"
   api_lambda_stack_ref = "main"
+  s3_ref               = "main"
 }
