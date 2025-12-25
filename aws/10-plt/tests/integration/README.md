@@ -4,6 +4,44 @@ Integration tests verify that AWS services work together correctly in the chatbo
 
 ## Available Tests
 
+### test-echo-worker.sh
+
+Tests the SQS → Lambda integration with the echo worker.
+
+**What it tests:**
+1. Gets the SQS queue URL
+2. Checks Lambda function configuration
+3. Sends a test message to SQS
+4. Waits for Lambda to process the message
+5. Verifies Lambda execution in CloudWatch Logs
+
+**Usage:**
+```bash
+./test-echo-worker.sh
+```
+
+**Expected output:**
+```
+=== Echo Worker Integration Test ===
+
+[1/5] Getting SQS queue URL...
+✓ Queue URL: https://sqs.ca-central-1.amazonaws.com/...
+
+[2/5] Checking Lambda function...
+✓ Lambda function exists
+
+[3/5] Sending test message to SQS...
+✓ Message sent
+
+[4/5] Waiting for Lambda to process...
+✓ Wait complete
+
+[5/5] Checking Lambda execution logs...
+✓ Lambda processed message successfully
+
+=== TEST PASSED ===
+```
+
 ### test-chatbot-flow.sh
 
 Tests the complete EventBridge -> SQS integration flow.

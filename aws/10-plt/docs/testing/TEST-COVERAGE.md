@@ -65,22 +65,28 @@ Test scripts fully cover:
 - ✅ SQS policy permissions
 - ✅ Message delivery
 
-### 3. SQS → worker Lambda → Slack (Not Tested)
+### 3. SQS → worker Lambda → Slack (✅ Echo Worker Tested)
 
-**Required Tests:**
-- Lambda receives messages from SQS
-- Message processing logic
-- Slack API calls
-- DLQ on errors
+**Current Test Coverage: 100% (Echo Worker)**
+
+Test script: `tests/integration/test-echo-worker.sh`
+
+**What's Being Verified:**
+- ✅ Lambda receives messages from SQS via Event Source Mapping
+- ✅ Lambda processes SQS messages with batch size 1
+- ✅ Lambda execution logs captured in CloudWatch
+- ✅ Event Source Mapping configuration (scaling, batch settings)
 
 **How to Test:**
 ```bash
-# Invoke Lambda directly (simulate SQS event)
-aws lambda invoke \
-  --function-name laco-plt-chatbot-echo-worker \
-  --payload '{"Records":[{"body":"..."}]}' \
-  response.json
+cd tests/integration
+./test-echo-worker.sh
 ```
+
+**Next Steps:**
+- Test deploy worker and status worker
+- Verify Slack API response delivery
+- Test DLQ error handling
 
 ---
 
@@ -95,15 +101,17 @@ Test individual components in isolation:
 - Policy syntax validation
 
 ### Integration Tests
-**Current Status:** ✅ EventBridge → SQS only
+**Current Status:** ✅ EventBridge → SQS → Lambda
 
 Current test scripts are at this level:
 - `test-chatbot-flow.sh`: EventBridge + SQS integration
 - `test-localstack.sh`: Integration testing on LocalStack
+- `test-echo-worker.sh`: SQS → Lambda (echo worker) integration
 
 **Missing Integration Tests:**
 - API Gateway + slack-router + EventBridge
-- SQS + worker Lambda + Slack API
+- Lambda → Slack API response verification
+- Deploy/Status worker integration tests
 
 ### End-to-End Tests
 **Current Status:** ❌ None
@@ -240,10 +248,11 @@ Recommended testing order for current development stage:
 - EventBridge → SQS integration
 - Policy permission validation
 
-### Phase 2: Lambda Integration (Next Step)
-1. Deploy worker Lambdas
-2. Test SQS → Lambda triggers
-3. Verify Lambda logs and metrics
+### Phase 2: Lambda Integration (✅ In Progress)
+1. ✅ Deploy echo worker Lambda
+2. ✅ Test SQS → Lambda event source mapping
+3. ✅ Verify Lambda logs and execution
+4. ⏸️ Test deploy/status workers (next)
 
 ### Phase 3: API Gateway Integration
 1. Deploy slack-router Lambda
@@ -262,7 +271,8 @@ Recommended testing order for current development stage:
 | Test Scope | Current Coverage | Priority | Status |
 |------------|------------------|----------|--------|
 | EventBridge → SQS | 100% | High | ✅ Complete |
-| SQS → Lambda | 0% | High | ❌ Needed |
+| SQS → Lambda (Echo) | 100% | High | ✅ Complete |
+| SQS → Lambda (Deploy/Status) | 0% | High | ⏸️ Next |
 | Lambda → Slack | 0% | Medium | ❌ Needed |
 | API Gateway → EventBridge | 0% | Medium | ❌ Needed |
 | Slack → API Gateway | 0% | Low | ⏸️ Later |
@@ -270,7 +280,7 @@ Recommended testing order for current development stage:
 | DLQ & Error Handling | 0% | Medium | ⏸️ Later |
 | Performance & Scale | 0% | Low | ⏸️ Later |
 
-**Current tests cover approximately 20% of the full architecture.**
+**Current tests cover approximately 40% of the full architecture.**
 
 ---
 
