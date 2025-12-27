@@ -17,8 +17,7 @@ include "env" {
 }
 
 terraform {
-  # source = "github.com/llamandcoco/infra-modules//terraform/eventbridge?ref=${include.env.locals.eventbridge_ref}"
-  source = "github.com/llamandcoco/infra-modules//terraform/eventbridge?ref=a64a58355bdbae1fbeef5597702533d8aeb1dff5"
+  source = "github.com/llamandcoco/infra-modules//terraform/eventbridge?ref=${include.env.locals.eventbridge_ref}"
 }
 
 dependency "echo_sqs" {
@@ -158,20 +157,27 @@ inputs = {
       ]
     },
 
-    # Catch-all rule for unknown commands
+    # Catch-all rule for undefined intents (not errors)
+    # Treats unmatched commands as undefined intents rather than failures
+    # Enables future extensions: help messages, intent inference, LLM normalization
     {
-      name        = "${local.org_prefix}-${local.environment}-chatbot-unknown"
-      description = "Routes unknown commands to echo queue (default)"
+      name        = "${local.org_prefix}-${local.environment}-chatbot-catch-all"
+      description = "Routes unmatched commands to echo queue for graceful handling"
       enabled     = true
 
       event_pattern = jsonencode({
         source      = ["slack.command"]
         detail-type = ["Slack Command"]
+        detail = {
+          command = [{
+            "anything-but" = ["/echo", "/deploy", "/status"]
+          }]
+        }
       })
 
       targets = [
         {
-          target_id  = "unknown-sqs"
+          target_id  = "catch-all-sqs"
           arn        = dependency.echo_sqs.outputs.queue_arn
           input_path = "$.detail"
         }
