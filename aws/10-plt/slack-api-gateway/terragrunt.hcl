@@ -23,14 +23,14 @@ terraform {
 dependency "lambda" {
   config_path = "../slack-router-lambda"
   mock_outputs = {
-    function_arn     = "arn:aws:lambda:ca-central-1:123456789012:function:laco-plt-slack-router"
-    function_name    = "laco-plt-slack-router"
-    invoke_arn       = "arn:aws:apigateway:ca-central-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ca-central-1:123456789012:function:laco-plt-slack-router/invocations"
+    function_arn  = "arn:aws:lambda:ca-central-1:123456789012:function:laco-plt-slack-router"
+    function_name = "laco-plt-slack-router"
+    invoke_arn    = "arn:aws:apigateway:ca-central-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ca-central-1:123456789012:function:laco-plt-slack-router/invocations"
   }
 }
 
 locals {
-  org_prefix = include.root.locals.org_prefix
+  org_prefix  = include.root.locals.org_prefix
   environment = include.env.locals.environment
   api_name    = "${local.org_prefix}-${local.environment}-slack-bot"
 }
@@ -42,21 +42,21 @@ inputs = {
   stage_name      = "prod"
 
   # Endpoint type
-  endpoint_types = ["REGIONAL"]  # Regional for lower latency in ca-central-1
+  endpoint_types = ["REGIONAL"] # Regional for lower latency in ca-central-1
 
   # Resources (URL paths)
   # Create single path for /slack/commands
   resources = {
     slack_commands = {
       path_part = "slack"
-      parent_id = null  # Under root, creates /slack
+      parent_id = null # Under root, creates /slack
     }
   }
 
   # Methods and integrations
   methods = {
     post_slack_commands = {
-      resource_key     = "slack_commands"  # Reference to resource above
+      resource_key     = "slack_commands" # Reference to resource above
       http_method      = "POST"
       authorization    = "NONE"
       api_key_required = false
@@ -65,13 +65,13 @@ inputs = {
       integration_type        = "AWS_PROXY"
       integration_http_method = "POST"
       integration_uri         = dependency.lambda.outputs.invoke_arn
-      timeout_milliseconds    = 3000  # Slack 3-second requirement
+      timeout_milliseconds    = 3000 # Slack 3-second requirement
     }
   }
 
   # Deployment configuration
   deployment_triggers = {
-    redeployment = timestamp()  # Redeploy on every apply
+    redeployment = timestamp() # Redeploy on every apply
   }
 
   # Stage settings

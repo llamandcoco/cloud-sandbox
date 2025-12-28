@@ -45,14 +45,14 @@ dependency "status_sqs" {
 }
 
 locals {
-  org_prefix      = include.root.locals.org_prefix
-  environment     = include.env.locals.environment
-  event_bus_name  = "${local.org_prefix}-${local.environment}-chatbot"
+  org_prefix     = include.root.locals.org_prefix
+  environment    = include.env.locals.environment
+  event_bus_name = "${local.org_prefix}-${local.environment}-chatbot"
 }
 
 inputs = {
   # Event bus configuration
-  event_bus_name  = local.event_bus_name
+  event_bus_name   = local.event_bus_name
   create_event_bus = true
 
   # Multiple rules configuration
@@ -77,7 +77,7 @@ inputs = {
         {
           target_id  = "echo-sqs"
           arn        = dependency.echo_sqs.outputs.queue_arn
-          input_path = "$.detail"  # Pass only the detail portion
+          input_path = "$.detail" # Pass only the detail portion
 
           # DLQ for failed events
           dead_letter_config = {
@@ -86,7 +86,7 @@ inputs = {
 
           # Retry policy
           retry_policy = {
-            maximum_event_age_in_seconds = 3600   # 1 hour
+            maximum_event_age_in_seconds = 3600 # 1 hour
             maximum_retry_attempts       = 3
           }
         }

@@ -63,22 +63,22 @@ inputs = {
 
   # Performance
   memory_size = 256
-  timeout     = 3  # Slack requires response within 3 seconds
+  timeout     = 3 # Slack requires response within 3 seconds
 
   # Architecture
-  architectures = ["arm64"]  # Graviton2
+  architectures = ["arm64"] # Graviton2
 
   # Concurrency control
-  reserved_concurrent_executions = -1  # -1 = unreserved (no limit for API endpoint)
+  reserved_concurrent_executions = -1 # -1 = unreserved (no limit for API endpoint)
 
   # Environment variables
   environment_variables = {
-    ORG_PREFIX              = local.org_prefix
-    ENVIRONMENT             = local.environment
-    AWS_PARAMETER_PREFIX    = "/${local.org_prefix}/${local.environment}"
-    EVENTBRIDGE_BUS_NAME    = dependency.eventbridge.outputs.event_bus_name
-    LOG_LEVEL               = "info"
-    NODE_ENV                = "production"
+    ORG_PREFIX           = local.org_prefix
+    ENVIRONMENT          = local.environment
+    AWS_PARAMETER_PREFIX = "/${local.org_prefix}/${local.environment}"
+    EVENTBRIDGE_BUS_NAME = dependency.eventbridge.outputs.event_bus_name
+    LOG_LEVEL            = "info"
+    NODE_ENV             = "production"
   }
 
   # No event source mappings (triggered by API Gateway)

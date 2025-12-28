@@ -60,13 +60,13 @@ inputs = {
 
   # Performance
   memory_size = 256
-  timeout     = 30  # Less than SQS visibility timeout (35s)
+  timeout     = 30 # Less than SQS visibility timeout (35s)
 
   # Architecture
-  architectures = ["arm64"]  # Graviton2
+  architectures = ["arm64"] # Graviton2
 
   # Concurrency control
-  reserved_concurrent_executions = 5  # Limit parallel executions
+  reserved_concurrent_executions = 5 # Limit parallel executions
 
   # Environment variables
   environment_variables = {
@@ -83,15 +83,15 @@ inputs = {
       event_source_arn = dependency.sqs.outputs.queue_arn
 
       # Batch settings
-      batch_size                         = 1   # Process one message at a time
-      maximum_batching_window_in_seconds = 0   # No batching delay
+      batch_size                         = 1 # Process one message at a time
+      maximum_batching_window_in_seconds = 0 # No batching delay
 
       # Error handling
       function_response_types = ["ReportBatchItemFailures"]
 
       # Scaling
       scaling_config = {
-        maximum_concurrency = 5  # Match reserved_concurrent_executions
+        maximum_concurrency = 5 # Match reserved_concurrent_executions
       }
 
       # Filtering (optional - process all messages)

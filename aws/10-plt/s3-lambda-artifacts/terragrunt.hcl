@@ -38,7 +38,7 @@ inputs = {
     {
       id      = "cleanup-old-builds"
       enabled = true
-      prefix  = ""  # Apply to all objects
+      prefix  = "" # Apply to all objects
 
       # Delete old objects after 90 days
       expiration_days = 90

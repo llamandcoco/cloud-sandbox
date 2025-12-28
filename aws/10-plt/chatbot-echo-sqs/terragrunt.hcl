@@ -16,15 +16,15 @@ include "env" {
 }
 
 locals {
-  org_prefix    = include.root.locals.org_prefix
-  environment   = include.env.locals.environment
-  command       = "echo"
+  org_prefix  = include.root.locals.org_prefix
+  environment = include.env.locals.environment
+  command     = "echo"
 
   # Resource names
-  queue_name         = "${local.org_prefix}-${local.environment}-chatbot-${local.command}"
-  dlq_name           = "${local.queue_name}-dlq"
-  event_bus_name     = "${local.org_prefix}-${local.environment}-chatbot"
-  eventbridge_rule   = "${local.org_prefix}-${local.environment}-chatbot-${local.command}"
+  queue_name       = "${local.org_prefix}-${local.environment}-chatbot-${local.command}"
+  dlq_name         = "${local.queue_name}-dlq"
+  event_bus_name   = "${local.org_prefix}-${local.environment}-chatbot"
+  eventbridge_rule = "${local.org_prefix}-${local.environment}-chatbot-${local.command}"
 
   # AWS metadata
   account_id = include.root.locals.account_id
@@ -48,17 +48,17 @@ inputs = {
   fifo_queue = false
 
   # Message configuration
-  visibility_timeout_seconds = 35  # Slightly more than Lambda timeout (30s)
+  visibility_timeout_seconds = 35     # Slightly more than Lambda timeout (30s)
   message_retention_seconds  = 86400  # 1 day (echo is not critical)
-  max_message_size           = 262144  # 256 KB
+  max_message_size           = 262144 # 256 KB
   delay_seconds              = 0
-  receive_wait_time_seconds  = 20  # Long polling
+  receive_wait_time_seconds  = 20 # Long polling
 
   # Dead Letter Queue
   create_dlq                     = true
   dlq_name                       = local.dlq_name
   max_receive_count              = 3
-  dlq_message_retention_seconds  = 604800  # 7 days
+  dlq_message_retention_seconds  = 604800 # 7 days
   dlq_visibility_timeout_seconds = 30
   dlq_delay_seconds              = 0
 
