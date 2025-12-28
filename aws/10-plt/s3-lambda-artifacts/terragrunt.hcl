@@ -43,8 +43,9 @@ inputs = {
       # Delete old objects after 90 days
       expiration_days = 90
 
-      # Keep only last 30 days of non-current versions
-      noncurrent_version_expiration_days = 30
+      # Delete noncurrent versions after 3 days, but keep the 3 most recent
+      noncurrent_version_expiration_days = 3
+      newer_noncurrent_versions          = 3
     }
   ]
 
