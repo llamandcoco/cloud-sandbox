@@ -7,7 +7,7 @@
 
 locals {
   # AWS Account ID
-  account_id = run_cmd("aws", "sts", "get-caller-identity", "--query", "Account", "--output", "text")
+  account_id = run_cmd("--terragrunt-quiet", "aws", "sts", "get-caller-identity", "--query", "Account", "--output", "text")
 
   # Default region
   default_region = "ca-central-1"

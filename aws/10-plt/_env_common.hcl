@@ -9,13 +9,13 @@
 
 locals {
   # Environment metadata
-  environment = "plt/aws"
+  environment = "plt"
   provider    = "aws"
   team        = "platform"
   owner       = "llama"
 
   # Parameter Store path prefix for this environment
-  parameter_prefix = "/${local.environment}"
+  parameter_prefix = "/${local.environment}/${local.provider}"
 
   # Common tags for this environment
   common_tags = {
@@ -26,5 +26,11 @@ locals {
   }
 
   # Reference to infra-modules commit SHA
-  networking_stack_ref = "cf07bc63832108f576a3d3fca082980759c66da1"
+  networking_stack_ref = "main"
+  sqs_ref              = "main"
+  lambda_ref           = "main"
+  eventbridge_ref      = "main"
+  api_gateway_ref      = "main"
+  api_lambda_stack_ref = "main"
+  s3_ref               = "main"
 }
