@@ -38,8 +38,8 @@ locals {
   s3_bucket = "${local.org_prefix}-${local.environment}-lambda-artifacts"
   s3_key    = "${local.environment}/${local.command}/builds/${local.lambda_version}.zip"
 
-  # Local development path
-  local_source = "../../../../cloud-apps/applications/chatops/slack-bot/dist/${local.command}-worker.zip"
+  # Local development path (use absolute path for terragrunt cache compatibility)
+  local_source = abspath("${get_terragrunt_dir()}/../../../../cloud-apps/applications/chatops/slack-bot/dist/${local.command}-worker.zip")
 }
 
 inputs = {
@@ -124,6 +124,15 @@ inputs = {
       resources = [
         dependency.sqs.outputs.queue_arn
       ]
+    },
+    # X-Ray tracing
+    {
+      effect = "Allow"
+      actions = [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords"
+      ]
+      resources = ["*"]
     }
   ]
 
@@ -132,6 +141,11 @@ inputs = {
 
   # Logging
   log_retention_days = 7
+
+  # Observability - X-Ray tracing
+  tracing_config = {
+    mode = "Active" # Enable X-Ray distributed tracing
+  }
 
   # Tags
   tags = merge(

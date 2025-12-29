@@ -26,11 +26,12 @@ locals {
   }
 
   # Reference to infra-modules commit SHA
-  networking_stack_ref = "main"
-  sqs_ref              = "main"
-  lambda_ref           = "main"
-  eventbridge_ref      = "main"
-  api_gateway_ref      = "main"
-  api_lambda_stack_ref = "main"
-  s3_ref               = "main"
+  networking_stack_ref     = "main"
+  sqs_ref                  = "main"
+  lambda_ref               = "main"
+  eventbridge_ref          = "main"
+  api_gateway_ref          = "main"
+  api_lambda_stack_ref     = "main"
+  s3_ref                   = "main"
+  cloudwatch_dashboard_ref = "main"
 }
