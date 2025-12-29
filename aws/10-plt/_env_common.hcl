@@ -33,5 +33,5 @@ locals {
   api_gateway_ref          = "main"
   api_lambda_stack_ref     = "main"
   s3_ref                   = "main"
-  cloudwatch_dashboard_ref = "ce6603cc706b45b763630369f9c76d1e8191efc0"
+  cloudwatch_dashboard_ref = "main"
 }
