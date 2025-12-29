@@ -144,7 +144,7 @@ inputs = {
 
   # Observability - X-Ray tracing
   tracing_config = {
-    mode = "Active"  # Enable X-Ray distributed tracing
+    mode = "Active" # Enable X-Ray distributed tracing
   }
 
   # Tags
