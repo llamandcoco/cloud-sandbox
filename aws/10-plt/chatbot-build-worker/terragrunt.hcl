@@ -109,7 +109,7 @@ inputs = {
         "ssm:GetParameters"
       ]
       resources = [
-        "arn:aws:ssm:ca-central-1:*:parameter/laco/plt/aws/secrets/slack/*"
+        "arn:aws:ssm:ca-central-1:${include.root.locals.account_id}:parameter/laco/plt/aws/secrets/slack/*"
       ]
     },
     # Read GitHub PAT (cross-environment access to common parameter)
@@ -119,7 +119,7 @@ inputs = {
         "ssm:GetParameter"
       ]
       resources = [
-        "arn:aws:ssm:ca-central-1:*:parameter/laco/cmn/github/pat/cloud-apps"
+        "arn:aws:ssm:ca-central-1:${include.root.locals.account_id}:parameter/laco/cmn/github/pat/cloud-apps"
       ]
     },
     # SQS permissions (receive/delete)
