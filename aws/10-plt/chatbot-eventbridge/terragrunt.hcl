@@ -44,6 +44,14 @@ dependency "status_sqs" {
   }
 }
 
+dependency "build_sqs" {
+  config_path = "../chatbot-build-sqs"
+  mock_outputs = {
+    queue_arn = "arn:aws:sqs:ca-central-1:123456789012:mock-queue"
+    dlq_arn   = "arn:aws:sqs:ca-central-1:123456789012:mock-queue-dlq"
+  }
+}
+
 locals {
   org_prefix     = include.root.locals.org_prefix
   environment    = include.env.locals.environment
@@ -157,6 +165,38 @@ inputs = {
       ]
     },
 
+    # Build command rule
+    {
+      name        = "${local.org_prefix}-${local.environment}-chatbot-build"
+      description = "Routes build commands to build worker queue (triggers GitHub Actions)"
+      enabled     = true
+
+      event_pattern = jsonencode({
+        source      = ["slack.command"]
+        detail-type = ["Slack Command"]
+        detail = {
+          command = ["/build"]
+        }
+      })
+
+      targets = [
+        {
+          target_id  = "build-sqs"
+          arn        = dependency.build_sqs.outputs.queue_arn
+          input_path = "$.detail"
+
+          dead_letter_config = {
+            arn = dependency.build_sqs.outputs.dlq_arn
+          }
+
+          retry_policy = {
+            maximum_event_age_in_seconds = 3600
+            maximum_retry_attempts       = 3
+          }
+        }
+      ]
+    },
+
     # Catch-all rule for undefined intents (not errors)
     # Treats unmatched commands as undefined intents rather than failures
     # Enables future extensions: help messages, intent inference, LLM normalization
@@ -170,7 +210,7 @@ inputs = {
         detail-type = ["Slack Command"]
         detail = {
           command = [{
-            "anything-but" = ["/echo", "/deploy", "/status"]
+            "anything-but" = ["/echo", "/deploy", "/status", "/build"]
           }]
         }
       })
