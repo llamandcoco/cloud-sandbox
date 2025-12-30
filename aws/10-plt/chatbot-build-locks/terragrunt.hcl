@@ -55,8 +55,8 @@ inputs = {
   point_in_time_recovery_enabled = false
 
   # Server-side encryption (AWS managed)
-  server_side_encryption_enabled = true
-  server_side_encryption_kms_key_arn = null  # Use AWS managed key
+  server_side_encryption_enabled     = true
+  server_side_encryption_kms_key_arn = null # Use AWS managed key
 
   # Global secondary indexes (none needed)
   global_secondary_indexes = []
