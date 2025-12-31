@@ -2,6 +2,28 @@
 
 Event-driven, scalable Slack bot architecture using EventBridge for command routing.
 
+## Quadrant-Based Resource Allocation
+
+This architecture uses a **quadrant-based approach** to optimize Lambda workers and SQS queues based on command characteristics (execution time and side effects). This provides:
+
+- **Security**: Read-only workers have minimal IAM permissions
+- **Performance**: Fast commands have low timeouts and high concurrency
+- **Resource Efficiency**: Configuration tailored to command needs
+- **Isolation**: Write operations don't impact read operations
+
+See [QUADRANT-ARCHITECTURE.md](./QUADRANT-ARCHITECTURE.md) for detailed rationale and configuration matrix.
+
+### Command Categories
+
+| Command | Category | Timeout | Concurrency | Permissions |
+|---------|----------|---------|-------------|-------------|
+| `/echo` | short-read | 10s | 100 | Read-only (SSM, SQS) |
+| `/status` | short-read | 10s | 50 | Read-only (SSM, SQS) |
+| `/build` | long-write | 120s | 2 | Scoped write (S3, GitHub) |
+| `/deploy` | long-write | 900s | 1 | Scoped write (S3, GitHub) |
+
+
+
 ## Architecture Diagram
 
 ```mermaid
@@ -18,14 +40,14 @@ graph TB
 
         EB["EventBridge<br/>laco-plt-chatbot<br/><i>Archive: 7 days</i>"]
 
-        subgraph Echo["Echo Command"]
-            SQS1["SQS: echo<br/>+ DLQ"]
-            Worker1["Lambda: echo-worker<br/><i>Timeout: 30s</i><br/><i>Concurrency: 5</i>"]
+        subgraph Echo["Echo Command (Short-Read)"]
+            SQS1["SQS: echo<br/>+ DLQ<br/><i>Visibility: 15s</i>"]
+            Worker1["Lambda: echo-worker<br/><i>Timeout: 10s</i><br/><i>Concurrency: 100</i>"]
         end
 
-        subgraph Deploy["Deploy Command"]
-            SQS2["SQS: deploy<br/>+ DLQ<br/><i>Visibility: 15min</i>"]
-            Worker2["Lambda: deploy-worker<br/><i>Timeout: 15min</i><br/><i>Concurrency: 2</i>"]
+        subgraph Build["Build Command (Long-Write)"]
+            SQS2["SQS: build<br/>+ DLQ<br/><i>Visibility: 180s</i>"]
+            Worker2["Lambda: build-worker<br/><i>Timeout: 120s</i><br/><i>Concurrency: 2</i>"]
         end
 
         subgraph Status["Status Command"]
@@ -39,7 +61,7 @@ graph TB
     Router -->|PutEvents| EB
 
     EB -->|Rule: /echo| SQS1
-    EB -->|Rule: /deploy| SQS2
+    EB -->|Rule: /build| SQS2
     EB -->|Rule: /status| SQS3
 
     SQS1 --> Worker1
@@ -73,9 +95,10 @@ graph TB
 ### 2. chatbot-eventbridge
 - **Purpose**: Routes events to appropriate SQS queues
 - **Rules**:
-  - `/echo` → echo queue
-  - `/deploy` → deploy queue
-  - `/status` → status queue
+  - `/echo` → echo queue (short-read)
+  - `/build` → build queue (long-write)
+  - `/status` → status queue (short-read)
+  - `/deploy` → deploy queue (long-write)
   - unknown → default queue
 - **Stack**: `cloud-sandbox/aws/10-plt/chatbot-eventbridge/`
 
@@ -83,20 +106,24 @@ graph TB
 
 #### Echo Worker
 - **Purpose**: Responds with "async <text>"
-- **Timeout**: 30 seconds
-- **Concurrency**: 5
+- **Category**: Short-Read (Q1)
+- **Timeout**: 10 seconds
+- **Concurrency**: 100
+- **IAM**: Read-only (SSM, SQS, X-Ray)
 - **Stacks**:
   - SQS: `chatbot-echo-sqs/`
   - Lambda: `chatbot-echo-worker/`
 
-#### Deploy Worker
-- **Purpose**: Handles deployment commands
-- **Timeout**: 15 minutes (900s)
+#### Build Worker
+- **Purpose**: Triggers GitHub Actions workflows to build Lambda artifacts
+- **Category**: Long-Write (Q4)
+- **Timeout**: 120 seconds
 - **Concurrency**: 2 (limited for safety)
-- **Memory**: 1024 MB
+- **Memory**: 512 MB
+- **IAM**: Scoped write (S3 artifacts, GitHub PAT)
 - **Stacks**:
-  - SQS: `chatbot-deploy-sqs/`
-  - Lambda: `chatbot-deploy-worker/`
+  - SQS: `chatbot-build-sqs/`
+  - Lambda: `chatbot-build-worker/`
 
 #### Status Worker
 - **Purpose**: Reports system status
@@ -254,9 +281,10 @@ terragrunt run-all apply --terragrunt-include-dir chatbot-*-worker
 ## Scaling
 
 ### Current Configuration
-- Echo: 5 concurrent executions
-- Deploy: 2 concurrent executions (limited)
-- Status: 5 concurrent executions
+- Echo: 100 concurrent executions (short-read)
+- Build: 2 concurrent executions (long-write)
+- Status: 5 concurrent executions (short-read)
+- Deploy: 2 concurrent executions (long-write)
 
 ### To Scale
 Edit `reserved_concurrent_executions` in worker terragrunt.hcl:

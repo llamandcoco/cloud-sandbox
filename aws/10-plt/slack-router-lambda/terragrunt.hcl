@@ -79,6 +79,14 @@ inputs = {
     EVENTBRIDGE_BUS_NAME = dependency.eventbridge.outputs.event_bus_name
     LOG_LEVEL            = "info"
     NODE_ENV             = "production"
+
+    # Command category mapping for quadrant-based routing
+    COMMAND_CATEGORIES = jsonencode({
+      "/echo"   = "short-read"
+      "/status" = "short-read"
+      "/build"  = "long-write"
+      "/deploy" = "long-write"
+    })
   }
 
   # No event source mappings (triggered by API Gateway)

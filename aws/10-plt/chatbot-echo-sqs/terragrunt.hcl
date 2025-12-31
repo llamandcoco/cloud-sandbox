@@ -48,8 +48,8 @@ inputs = {
   fifo_queue = false
 
   # Message configuration
-  visibility_timeout_seconds = 35     # Slightly more than Lambda timeout (30s)
-  message_retention_seconds  = 86400  # 1 day (echo is not critical)
+  visibility_timeout_seconds = 15     # Optimized for fast processing (10s timeout + 5s buffer)
+  message_retention_seconds  = 43200  # 12 hours (echo is not critical)
   max_message_size           = 262144 # 256 KB
   delay_seconds              = 0
   receive_wait_time_seconds  = 20 # Long polling
@@ -57,8 +57,8 @@ inputs = {
   # Dead Letter Queue
   create_dlq                     = true
   dlq_name                       = local.dlq_name
-  max_receive_count              = 3
-  dlq_message_retention_seconds  = 604800 # 7 days
+  max_receive_count              = 2 # Reduced retries for fast reads
+  dlq_message_retention_seconds  = 259200 # 3 days
   dlq_visibility_timeout_seconds = 30
   dlq_delay_seconds              = 0
 
