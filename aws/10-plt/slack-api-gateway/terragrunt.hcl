@@ -106,8 +106,8 @@ inputs = {
 
   # Stage settings
   stage_settings = {
-    throttling_burst_limit = 5   # 순간 최대 5개 요청 (연속 클릭 대응)
-    throttling_rate_limit  = 2   # 초당 평균 2개 요청
+    throttling_burst_limit = 5 # 순간 최대 5개 요청 (연속 클릭 대응)
+    throttling_rate_limit  = 2 # 초당 평균 2개 요청
     logging_level          = "INFO"
     metrics_enabled        = true
   }

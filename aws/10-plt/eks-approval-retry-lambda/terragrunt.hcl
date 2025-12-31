@@ -42,7 +42,7 @@ inputs = {
   handler       = "index.handler"
   source_path   = local.lambda_source
   memory_size   = 256
-  timeout       = 60  # Process multiple pending requests
+  timeout       = 60 # Process multiple pending requests
   architectures = ["arm64"]
 
   environment_variables = {
@@ -52,7 +52,7 @@ inputs = {
     LOG_LEVEL            = "info"
     NODE_ENV             = "production"
     DYNAMODB_TABLE_NAME  = dependency.dynamodb.outputs.table_name
-    SLACK_CHANNEL_ID     = "C06XXXXXXXXX"  # Replace with actual channel ID
+    SLACK_CHANNEL_ID     = "C06XXXXXXXXX" # Replace with actual channel ID
   }
 
   policy_statements = [

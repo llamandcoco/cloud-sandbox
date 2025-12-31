@@ -42,17 +42,17 @@ inputs = {
   handler       = "index.handler"
   source_path   = local.lambda_source
   memory_size   = 256
-  timeout       = 10  # Slack requires response within 3 seconds, but we can use response_url for longer operations
+  timeout       = 10 # Slack requires response within 3 seconds, but we can use response_url for longer operations
   architectures = ["arm64"]
 
   environment_variables = {
-    ORG_PREFIX            = local.org_prefix
-    ENVIRONMENT           = local.environment
-    AWS_PARAMETER_PREFIX  = "/${local.org_prefix}/${local.environment}"
-    LOG_LEVEL             = "info"
-    NODE_ENV              = "production"
-    DYNAMODB_TABLE_NAME   = dependency.dynamodb.outputs.table_name
-    EVENTBRIDGE_BUS_NAME  = "${local.org_prefix}-${local.environment}-chatbot"
+    ORG_PREFIX           = local.org_prefix
+    ENVIRONMENT          = local.environment
+    AWS_PARAMETER_PREFIX = "/${local.org_prefix}/${local.environment}"
+    LOG_LEVEL            = "info"
+    NODE_ENV             = "production"
+    DYNAMODB_TABLE_NAME  = dependency.dynamodb.outputs.table_name
+    EVENTBRIDGE_BUS_NAME = "${local.org_prefix}-${local.environment}-chatbot"
   }
 
   policy_statements = [

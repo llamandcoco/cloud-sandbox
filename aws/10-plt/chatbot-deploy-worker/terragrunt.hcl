@@ -30,24 +30,24 @@ dependency "dynamodb" {
 }
 
 locals {
-  org_prefix        = include.root.locals.org_prefix
-  environment       = include.env.locals.environment
-  command           = "deploy"
-  function_name     = "${local.org_prefix}-${local.environment}-chatbot-${local.command}-worker"
-  lambda_source     = "../../../../cloud-apps/applications/chatops/slack-bot/dist/workers/deploy"
+  org_prefix    = include.root.locals.org_prefix
+  environment   = include.env.locals.environment
+  command       = "deploy"
+  function_name = "${local.org_prefix}-${local.environment}-chatbot-${local.command}-worker"
+  lambda_source = "../../../../cloud-apps/applications/chatops/slack-bot/dist/workers/deploy"
 }
 
 inputs = {
   function_name = local.function_name
   description   = "Handles deployment commands from Slack"
 
-  runtime = "nodejs20.x"
-  handler = "index.handler"
+  runtime     = "nodejs20.x"
+  handler     = "index.handler"
   source_path = local.lambda_source
 
-  memory_size                    = 1024  # Deploy needs more memory
-  timeout                        = 900   # 15 minutes (max)
-  reserved_concurrent_executions = 2     # Limit concurrent deploys
+  memory_size                    = 1024 # Deploy needs more memory
+  timeout                        = 900  # 15 minutes (max)
+  reserved_concurrent_executions = 2    # Limit concurrent deploys
 
   architectures = ["arm64"]
 
@@ -58,7 +58,7 @@ inputs = {
     LOG_LEVEL            = "info"
     NODE_ENV             = "production"
     DYNAMODB_TABLE_NAME  = dependency.dynamodb.outputs.table_name
-    SLACK_CHANNEL_ID     = "C06XXXXXXXXX"  # Replace with actual channel ID
+    SLACK_CHANNEL_ID     = "C06XXXXXXXXX" # Replace with actual channel ID
   }
 
   event_source_mappings = [
@@ -112,7 +112,7 @@ inputs = {
   ]
 
   vpc_config         = null
-  log_retention_days = 14  # Deploy logs kept longer
+  log_retention_days = 14 # Deploy logs kept longer
 
   tags = merge(
     include.env.locals.common_tags,

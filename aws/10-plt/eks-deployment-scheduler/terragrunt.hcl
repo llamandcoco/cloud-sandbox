@@ -34,8 +34,8 @@ dependency "retry_lambda" {
 }
 
 locals {
-  org_prefix = include.root.locals.org_prefix
-  environment = include.env.locals.environment
+  org_prefix     = include.root.locals.org_prefix
+  environment    = include.env.locals.environment
   event_bus_name = "${local.org_prefix}-${local.environment}-chatbot"
 }
 
@@ -50,13 +50,13 @@ inputs = {
     {
       name                = "${local.org_prefix}-${local.environment}-eks-create-schedule"
       description         = "Daily EKS cluster creation at 9 AM EST"
-      schedule_expression = "cron(0 14 * * ? *)"  # 9 AM EST = 14:00 UTC
+      schedule_expression = "cron(0 14 * * ? *)" # 9 AM EST = 14:00 UTC
       enabled             = true
 
       targets = [{
         target_id = "deploy-worker"
         arn       = dependency.deploy_worker.outputs.function_arn
-        input     = jsonencode({
+        input = jsonencode({
           deployment_type = "create_cluster"
           cluster_config = {
             cluster_name = "laco-plt-platform-eks"
@@ -77,13 +77,13 @@ inputs = {
     {
       name                = "${local.org_prefix}-${local.environment}-eks-delete-schedule"
       description         = "Daily EKS cluster deletion at 6 PM EST"
-      schedule_expression = "cron(0 23 * * ? *)"  # 6 PM EST = 23:00 UTC
+      schedule_expression = "cron(0 23 * * ? *)" # 6 PM EST = 23:00 UTC
       enabled             = true
 
       targets = [{
         target_id = "deploy-worker"
         arn       = dependency.deploy_worker.outputs.function_arn
-        input     = jsonencode({
+        input = jsonencode({
           deployment_type = "delete_cluster"
           cluster_config = {
             cluster_name = "laco-plt-platform-eks"
@@ -111,7 +111,7 @@ inputs = {
         arn       = dependency.retry_lambda.outputs.function_arn
 
         retry_policy = {
-          maximum_event_age_in_seconds = 900  # 15 minutes
+          maximum_event_age_in_seconds = 900 # 15 minutes
           maximum_retry_attempts       = 1
         }
       }]

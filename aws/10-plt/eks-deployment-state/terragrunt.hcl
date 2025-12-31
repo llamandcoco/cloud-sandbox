@@ -20,14 +20,14 @@ terraform {
 }
 
 locals {
-  org_prefix = include.root.locals.org_prefix
+  org_prefix  = include.root.locals.org_prefix
   environment = include.env.locals.environment
-  table_name = "${local.org_prefix}-${local.environment}-eks-deployment-requests"
+  table_name  = "${local.org_prefix}-${local.environment}-eks-deployment-requests"
 }
 
 inputs = {
   table_name   = local.table_name
-  billing_mode = "PAY_PER_REQUEST"  # On-demand for low traffic
+  billing_mode = "PAY_PER_REQUEST" # On-demand for low traffic
   hash_key     = "request_id"
   range_key    = "created_at"
 
