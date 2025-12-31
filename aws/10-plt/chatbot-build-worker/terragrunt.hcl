@@ -123,6 +123,8 @@ inputs = {
       ]
     },
     # Write to S3 artifacts (scoped to builds)
+    # Pattern: plt/*/builds/* allows writing builds for any command
+    # while preventing writes to other paths (e.g., plt/production/*)
     {
       effect = "Allow"
       actions = [

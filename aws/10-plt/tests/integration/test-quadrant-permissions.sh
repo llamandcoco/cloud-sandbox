@@ -140,7 +140,7 @@ else
   echo -e "${YELLOW}  ⚠ Memory value: ${ECHO_MEMORY}MB${NC}"
 fi
 
-if [ "$ECHO_CONCURRENCY" = "100" ]; then
+if [ "$ECHO_CONCURRENCY" -eq 100 ]; then
   echo -e "${GREEN}  ✓ Concurrency correct${NC}"
 else
   echo -e "${YELLOW}  ⚠ Concurrency value: ${ECHO_CONCURRENCY}${NC}"
@@ -179,7 +179,7 @@ else
   echo -e "${YELLOW}  ⚠ Memory value: ${BUILD_MEMORY}MB${NC}"
 fi
 
-if [ "$BUILD_CONCURRENCY" = "2" ]; then
+if [ "$BUILD_CONCURRENCY" -eq 2 ]; then
   echo -e "${GREEN}  ✓ Concurrency correct${NC}"
 else
   echo -e "${YELLOW}  ⚠ Concurrency value: ${BUILD_CONCURRENCY}${NC}"
