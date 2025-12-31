@@ -60,13 +60,13 @@ inputs = {
 
   # Performance
   memory_size = 256
-  timeout     = 30 # Less than SQS visibility timeout (35s)
+  timeout     = 10 # Optimized for fast reads (short-read quadrant)
 
   # Architecture
   architectures = ["arm64"] # Graviton2
 
   # Concurrency control
-  reserved_concurrent_executions = 5 # Limit parallel executions
+  reserved_concurrent_executions = 100 # High concurrency for read operations
 
   # Environment variables
   environment_variables = {
@@ -91,7 +91,7 @@ inputs = {
 
       # Scaling
       scaling_config = {
-        maximum_concurrency = 5 # Match reserved_concurrent_executions
+        maximum_concurrency = 100 # Match reserved_concurrent_executions
       }
 
       # Filtering (optional - process all messages)
@@ -151,9 +151,11 @@ inputs = {
   tags = merge(
     include.env.locals.common_tags,
     {
-      Application = "slack-bot"
-      Component   = "echo-worker"
-      Command     = "echo"
+      Application     = "slack-bot"
+      Component       = "echo-worker"
+      Command         = "echo"
+      CommandCategory = "short-read"
+      SLOTarget       = "p99-500ms"
     }
   )
 }

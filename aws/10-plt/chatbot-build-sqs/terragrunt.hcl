@@ -49,16 +49,16 @@ inputs = {
   fifo_queue = false
 
   # Message configuration
-  visibility_timeout_seconds = 65     # Slightly more than Lambda timeout (60s)
-  message_retention_seconds  = 86400  # 1 day
+  visibility_timeout_seconds = 180    # Extended for long operations (120s timeout + 60s buffer)
+  message_retention_seconds  = 172800 # 2 days
   max_message_size           = 262144 # 256 KB
-  delay_seconds              = 0
-  receive_wait_time_seconds  = 20 # Long polling
+  delay_seconds              = 2      # Rate limiting for write operations
+  receive_wait_time_seconds  = 20     # Long polling
 
   # Dead Letter Queue
   create_dlq                     = true
   dlq_name                       = local.dlq_name
-  max_receive_count              = 3      # Retry 3 times before DLQ
+  max_receive_count              = 1 # No retry for writes (fail fast)
   dlq_message_retention_seconds  = 604800 # 7 days
   dlq_visibility_timeout_seconds = 30
   dlq_delay_seconds              = 0

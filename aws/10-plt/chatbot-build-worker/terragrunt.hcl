@@ -59,14 +59,14 @@ inputs = {
   s3_object_version = local.use_s3 && get_env("S3_OBJECT_VERSION", "") != "" ? get_env("S3_OBJECT_VERSION", "") : null
 
   # Performance
-  memory_size = 256
-  timeout     = 60 # GitHub API call may take time; less than SQS visibility timeout (65s)
+  memory_size = 512 # More resources for GitHub API + builds
+  timeout     = 120 # Extended for long-write operations; less than SQS visibility timeout (180s)
 
   # Architecture
   architectures = ["arm64"] # Graviton2
 
   # Concurrency control
-  reserved_concurrent_executions = 5 # Limit parallel executions
+  reserved_concurrent_executions = 2 # Limited concurrency to prevent abuse
 
   # Environment variables
   environment_variables = {
@@ -91,7 +91,7 @@ inputs = {
 
       # Scaling
       scaling_config = {
-        maximum_concurrency = 5 # Match reserved_concurrent_executions
+        maximum_concurrency = 2 # Match reserved_concurrent_executions
       }
 
       # Filtering (optional - process all messages)
@@ -120,6 +120,17 @@ inputs = {
       ]
       resources = [
         "arn:aws:ssm:ca-central-1:${include.root.locals.account_id}:parameter/laco/cmn/github/pat/cloud-apps"
+      ]
+    },
+    # Write to S3 artifacts (scoped to builds)
+    {
+      effect = "Allow"
+      actions = [
+        "s3:PutObject",
+        "s3:PutObjectAcl"
+      ]
+      resources = [
+        "arn:aws:s3:::laco-plt-lambda-artifacts/plt/*/builds/*"
       ]
     },
     # SQS permissions (receive/delete)
@@ -161,9 +172,11 @@ inputs = {
   tags = merge(
     include.env.locals.common_tags,
     {
-      Application = "slack-bot"
-      Component   = "build-worker"
-      Command     = "build"
+      Application     = "slack-bot"
+      Component       = "build-worker"
+      Command         = "build"
+      CommandCategory = "long-write"
+      SLOTarget       = "p95-10min"
     }
   )
 }
