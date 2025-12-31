@@ -156,91 +156,15 @@ jobs:
       - name: Comment PR with Results
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
+        env:
+          CHANGED_STACKS: ${{ steps.changed-stacks.outputs.changed_stacks }}
+          FMT_STATUS: ${{ steps.fmt.outcome }}
+          VALIDATE_STATUS: ${{ steps.validate-hcl.outcome }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require('fs');
-            const path = require('path');
-
-            // Helper function to get status icon
-            const getStatusIcon = (outcome) => {
-              switch(outcome) {
-                case 'success': return '✅';
-                case 'failure': return '❌';
-                case 'skipped': return '⏭️';
-                default: return '❓';
-              }
-            };
-
-            // Helper function to parse changed stacks
-            const getChangedStacks = () => {
-              const changedStacks = '${{ steps.changed-stacks.outputs.changed_stacks }}';
-              if (!changedStacks || changedStacks.trim() === '') {
-                return 'None';
-              }
-              return changedStacks.split('\n')
-                .filter(s => s.trim())
-                .map(s => `\`${s}\``)
-                .join(', ');
-            };
-
-            // Read Trivy output and count issues
-            let trivyResults = 'No issues found or Trivy did not run';
-            let trivyCritical = 0;
-            let trivyHigh = 0;
-            let trivyMedium = 0;
-            const trivyPath = path.join(process.env.GITHUB_WORKSPACE, 'trivy_output.txt');
-            if (fs.existsSync(trivyPath)) {
-              trivyResults = fs.readFileSync(trivyPath, 'utf8').trim() || 'No issues found';
-              trivyCritical = (trivyResults.match(/\(CRITICAL\):/g) || []).length;
-              trivyHigh = (trivyResults.match(/\(HIGH\):/g) || []).length;
-              trivyMedium = (trivyResults.match(/\(MEDIUM\):/g) || []).length;
-            }
-
-            // Determine overall status
-            const fmtStatus = '${{ steps.fmt.outcome }}';
-            const validateStatus = '${{ steps.validate-hcl.outcome }}';
-            const trivyStatus = (trivyCritical > 0 || trivyHigh > 0) ? 'failure' : 'success';
-
-            const allPassed = fmtStatus === 'success' &&
-                             validateStatus === 'success' &&
-                             trivyStatus === 'success';
-
-            const changedStacks = getChangedStacks();
-
-            const output = `## 🔍 Terragrunt Check Results
-
-            ### 📊 Summary
-            ${allPassed ? '✅ **All checks passed!**' : '🔴 **Some checks failed**'}
-
-            | Check | Status | Issues | Scope |
-            |-------|--------|--------|-------|
-            | 🖌 **HCL Format** | ${getStatusIcon(fmtStatus)} ${fmtStatus} | - | All HCL files |
-            | 🤖 **HCL Validate** | ${getStatusIcon(validateStatus)} ${validateStatus} | - | All HCL files |
-            | 🔒 **Trivy** | ${getStatusIcon(trivyStatus)} ${trivyStatus} | ${trivyCritical} critical, ${trivyHigh} high, ${trivyMedium} medium | ${changedStacks} |
-
-            ---
-
-            <details>
-            <summary>🔒 Trivy Security Details (${trivyCritical + trivyHigh + trivyMedium} issue(s))</summary>
-
-            \`\`\`
-            ${trivyResults}
-            \`\`\`
-            </details>
-
-            ---
-            💡 **Note:** Terragrunt plan is disabled. To enable, configure AWS OIDC credentials in the workflow.
-
-            ---
-            <sub>👤 Pusher: @${{ github.actor }} | 🔄 Action: \`${{ github.event_name }}\` | ⚙️ Workflow: \`${{ github.workflow }}\`</sub>`;
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: output
-            })
+            const script = require('./.github/scripts/comment-pr-results.js');
+            await script({github, context, core});
 
       - name: Terragrunt Status Check
         if: steps.validate-hcl.outcome == 'failure'
