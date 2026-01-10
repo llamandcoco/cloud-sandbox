@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------
 # Chatbot Short-Read (SR) Unified Worker - Platform
-# cloud-sandbox/aws/10-plt/chatbot-command-sr/worker/terragrunt.hcl
+# cloud-sandbox/aws/10-plt/chatbot-command-sr-worker/terragrunt.hcl
 #
 # Unified Lambda worker for processing all short-read commands from SQS
 # Handles: echo, status, and future short-read commands
