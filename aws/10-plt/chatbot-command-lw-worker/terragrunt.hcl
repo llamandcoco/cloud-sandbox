@@ -123,18 +123,6 @@ inputs = {
         "arn:aws:ssm:ca-central-1:${include.root.locals.account_id}:parameter/laco/cmn/github/pat/cloud-apps"
       ]
     },
-    # Write to S3 artifacts (scoped to lw/builds)
-    # Pattern: plt/lw/builds/* restricts writes to long-write quadrant builds only
-    {
-      effect = "Allow"
-      actions = [
-        "s3:PutObject",
-        "s3:PutObjectAcl"
-      ]
-      resources = [
-        "arn:aws:s3:::laco-plt-lambda-artifacts/plt/lw/builds/*"
-      ]
-    },
     # SQS permissions (receive/delete)
     {
       effect = "Allow"
