@@ -52,7 +52,7 @@ inputs = {
   visibility_timeout_seconds = 180    # Extended for long operations (120s timeout + 60s buffer)
   message_retention_seconds  = 172800 # 2 days
   max_message_size           = 262144 # 256 KB
-  delay_seconds              = 2      # Rate limiting for write operations
+  delay_seconds              = 0      # No queue-level delay; rate limiting handled by Lambda concurrency
   receive_wait_time_seconds  = 20     # Long polling
 
   # Dead Letter Queue
