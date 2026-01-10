@@ -28,7 +28,7 @@ locals {
   org_prefix    = include.root.locals.org_prefix
   environment   = include.env.locals.environment
   quadrant      = "lw"
-  function_name = "${local.org_prefix}-${local.environment}-${local.quadrant}-worker"
+  function_name = "${local.org_prefix}-${local.environment}-chatbot-command-${local.quadrant}-worker"
 
   # Source configuration
   use_s3         = get_env("USE_S3_ARTIFACTS", "false") == "true"
@@ -163,7 +163,7 @@ inputs = {
     include.env.locals.common_tags,
     {
       Application     = "slack-bot"
-      Component       = "lw-worker"
+      Component       = "command-lw-worker"
       Quadrant        = "lw"
       QuadrantName    = "long-write"
       CommandCategory = "long-write"

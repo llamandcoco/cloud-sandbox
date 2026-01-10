@@ -21,7 +21,7 @@ locals {
   quadrant    = "lw"
 
   # Resource names
-  queue_name     = "${local.org_prefix}-${local.environment}-${local.quadrant}-queue"
+  queue_name     = "${local.org_prefix}-${local.environment}-chatbot-command-${local.quadrant}-queue"
   dlq_name       = "${local.queue_name}-dlq"
   event_bus_name = "${local.org_prefix}-${local.environment}-chatbot"
 
@@ -114,7 +114,7 @@ inputs = {
     include.env.locals.common_tags,
     {
       Application  = "slack-bot"
-      Component    = "lw-queue"
+      Component    = "command-lw-sqs"
       Quadrant     = "lw"
       QuadrantName = "long-write"
     }

@@ -20,8 +20,8 @@ locals {
   environment = include.env.locals.environment
   quadrant    = "sr"
 
-  # Resource names
-  queue_name     = "${local.org_prefix}-${local.environment}-${local.quadrant}-queue"
+  # Resource names - match directory naming convention
+  queue_name     = "${local.org_prefix}-${local.environment}-chatbot-command-${local.quadrant}-queue"
   dlq_name       = "${local.queue_name}-dlq"
   event_bus_name = "${local.org_prefix}-${local.environment}-chatbot"
 
@@ -116,7 +116,7 @@ inputs = {
     include.env.locals.common_tags,
     {
       Application  = "slack-bot"
-      Component    = "sr-queue"
+      Component    = "command-sr-sqs"
       Quadrant     = "sr"
       QuadrantName = "short-read"
     }
