@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------
 # Chatbot Short-Read (SR) Command Queue - Platform
-# cloud-sandbox/aws/10-plt/chatbot-command-sr/sqs/terragrunt.hcl
+# cloud-sandbox/aws/10-plt/chatbot-command-sr-sqs/terragrunt.hcl
 #
 # Unified SQS queue for all short-read commands (echo, status, etc.)
 # -----------------------------------------------------------------------------
