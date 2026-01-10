@@ -21,9 +21,9 @@ locals {
   quadrant    = "sr"
 
   # Resource names
-  queue_name       = "${local.org_prefix}-${local.environment}-${local.quadrant}-queue"
-  dlq_name         = "${local.queue_name}-dlq"
-  event_bus_name   = "${local.org_prefix}-${local.environment}-chatbot"
+  queue_name     = "${local.org_prefix}-${local.environment}-${local.quadrant}-queue"
+  dlq_name       = "${local.queue_name}-dlq"
+  event_bus_name = "${local.org_prefix}-${local.environment}-chatbot"
 
   # AWS metadata
   account_id = include.root.locals.account_id
@@ -56,7 +56,7 @@ inputs = {
   # Dead Letter Queue
   create_dlq                     = true
   dlq_name                       = local.dlq_name
-  max_receive_count              = 2 # Reduced retries for fast reads
+  max_receive_count              = 2      # Reduced retries for fast reads
   dlq_message_retention_seconds  = 259200 # 3 days
   dlq_visibility_timeout_seconds = 30
   dlq_delay_seconds              = 0

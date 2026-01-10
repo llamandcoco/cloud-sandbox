@@ -58,7 +58,7 @@ inputs = {
   # Dead Letter Queue
   create_dlq                     = true
   dlq_name                       = local.dlq_name
-  max_receive_count              = 1 # No retry for writes (fail fast)
+  max_receive_count              = 1      # No retry for writes (fail fast)
   dlq_message_retention_seconds  = 604800 # 7 days
   dlq_visibility_timeout_seconds = 30
   dlq_delay_seconds              = 0
