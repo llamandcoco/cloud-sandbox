@@ -96,7 +96,7 @@ reserved_concurrent_executions = 1-2        # Limited concurrency
 visibility_timeout_seconds = 180-960 # Timeout + 60s buffer
 message_retention_seconds  = 172800  # 2 days
 max_receive_count          = 1       # No automatic retries
-delay_seconds              = 2       # Rate limiting
+delay_seconds              = 0       # No queue-level delay; rate limiting handled by Lambda concurrency
 ```
 
 **IAM Permissions**:
