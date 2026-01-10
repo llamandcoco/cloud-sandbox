@@ -130,6 +130,8 @@ inputs = {
         detail-type = ["Slack Command"]
         detail = {
           command = [{
+            # Exclude all currently implemented commands
+            # This list must be kept in sync with all command-specific rules above
             "anything-but" = ["/echo", "/build"]
           }]
         }
