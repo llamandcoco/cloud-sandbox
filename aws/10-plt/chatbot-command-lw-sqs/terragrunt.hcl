@@ -1,9 +1,8 @@
 # -----------------------------------------------------------------------------
-# Chatbot Build SQS Queue - Platform
-# cloud-sandbox/aws/10-plt/chatbot-build-sqs/terragrunt.hcl
+# Chatbot Long-Write (LW) Command Queue - Platform
+# cloud-sandbox/aws/10-plt/chatbot-command-lw-sqs/terragrunt.hcl
 #
-# SQS queue for build command processing
-# Triggers GitHub Actions workflows to build and upload Lambda artifacts
+# Unified SQS queue for all long-write commands (build, deploy, etc.)
 # -----------------------------------------------------------------------------
 
 include "root" {
@@ -19,13 +18,12 @@ include "env" {
 locals {
   org_prefix  = include.root.locals.org_prefix
   environment = include.env.locals.environment
-  command     = "build"
+  quadrant    = "lw"
 
   # Resource names
-  queue_name       = "${local.org_prefix}-${local.environment}-chatbot-${local.command}"
-  dlq_name         = "${local.queue_name}-dlq"
-  event_bus_name   = "${local.org_prefix}-${local.environment}-chatbot"
-  eventbridge_rule = "${local.org_prefix}-${local.environment}-chatbot-${local.command}"
+  queue_name     = "${local.org_prefix}-${local.environment}-chatbot-command-${local.quadrant}-queue"
+  dlq_name       = "${local.queue_name}-dlq"
+  event_bus_name = "${local.org_prefix}-${local.environment}-chatbot"
 
   # AWS metadata
   account_id = include.root.locals.account_id
@@ -49,16 +47,16 @@ inputs = {
   fifo_queue = false
 
   # Message configuration
-  visibility_timeout_seconds = 65     # Slightly more than Lambda timeout (60s)
-  message_retention_seconds  = 86400  # 1 day
+  visibility_timeout_seconds = 180    # Extended for long operations (120s timeout + 60s buffer)
+  message_retention_seconds  = 172800 # 2 days
   max_message_size           = 262144 # 256 KB
-  delay_seconds              = 0
-  receive_wait_time_seconds  = 20 # Long polling
+  delay_seconds              = 0      # No queue-level delay; rate limiting handled by Lambda concurrency
+  receive_wait_time_seconds  = 20     # Long polling
 
   # Dead Letter Queue
   create_dlq                     = true
   dlq_name                       = local.dlq_name
-  max_receive_count              = 3      # Retry 3 times before DLQ
+  max_receive_count              = 1      # No retry for writes (fail fast)
   dlq_message_retention_seconds  = 604800 # 7 days
   dlq_visibility_timeout_seconds = 30
   dlq_delay_seconds              = 0
@@ -115,9 +113,10 @@ inputs = {
   tags = merge(
     include.env.locals.common_tags,
     {
-      Application = "slack-bot"
-      Component   = "build-queue"
-      Command     = "build"
+      Application  = "slack-bot"
+      Component    = "command-lw-sqs"
+      Quadrant     = "lw"
+      QuadrantName = "long-write"
     }
   )
 }

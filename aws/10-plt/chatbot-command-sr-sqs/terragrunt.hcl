@@ -1,8 +1,8 @@
 # -----------------------------------------------------------------------------
-# Chatbot Echo SQS Queue - Platform
-# cloud-sandbox/aws/10-plt/chatbot-echo-sqs/terragrunt.hcl
+# Chatbot Short-Read (SR) Command Queue - Platform
+# cloud-sandbox/aws/10-plt/chatbot-command-sr-sqs/terragrunt.hcl
 #
-# SQS queue for echo command processing
+# Unified SQS queue for all short-read commands (echo, status, etc.)
 # -----------------------------------------------------------------------------
 
 include "root" {
@@ -18,13 +18,12 @@ include "env" {
 locals {
   org_prefix  = include.root.locals.org_prefix
   environment = include.env.locals.environment
-  command     = "echo"
+  quadrant    = "sr"
 
-  # Resource names
-  queue_name       = "${local.org_prefix}-${local.environment}-chatbot-${local.command}"
-  dlq_name         = "${local.queue_name}-dlq"
-  event_bus_name   = "${local.org_prefix}-${local.environment}-chatbot"
-  eventbridge_rule = "${local.org_prefix}-${local.environment}-chatbot-${local.command}"
+  # Resource names - match directory naming convention
+  queue_name     = "${local.org_prefix}-${local.environment}-chatbot-command-${local.quadrant}-queue"
+  dlq_name       = "${local.queue_name}-dlq"
+  event_bus_name = "${local.org_prefix}-${local.environment}-chatbot"
 
   # AWS metadata
   account_id = include.root.locals.account_id
@@ -48,8 +47,8 @@ inputs = {
   fifo_queue = false
 
   # Message configuration
-  visibility_timeout_seconds = 35     # Slightly more than Lambda timeout (30s)
-  message_retention_seconds  = 86400  # 1 day (echo is not critical)
+  visibility_timeout_seconds = 15     # Optimized for fast processing (10s timeout + 5s buffer)
+  message_retention_seconds  = 43200  # 12 hours (short-read commands are not critical)
   max_message_size           = 262144 # 256 KB
   delay_seconds              = 0
   receive_wait_time_seconds  = 20 # Long polling
@@ -57,13 +56,13 @@ inputs = {
   # Dead Letter Queue
   create_dlq                     = true
   dlq_name                       = local.dlq_name
-  max_receive_count              = 3
-  dlq_message_retention_seconds  = 604800 # 7 days
+  max_receive_count              = 2      # Reduced retries for fast reads
+  dlq_message_retention_seconds  = 259200 # 3 days
   dlq_visibility_timeout_seconds = 30
   dlq_delay_seconds              = 0
 
   # Queue Policy - Allow EventBridge to send messages
-  # Allows all rules from the chatbot event bus (including echo and unknown rules)
+  # Allows all rules from the chatbot event bus
   queue_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -116,9 +115,10 @@ inputs = {
   tags = merge(
     include.env.locals.common_tags,
     {
-      Application = "slack-bot"
-      Component   = "echo-queue"
-      Command     = "echo"
+      Application  = "slack-bot"
+      Component    = "command-sr-sqs"
+      Quadrant     = "sr"
+      QuadrantName = "short-read"
     }
   )
 }

@@ -20,32 +20,16 @@ terraform {
   source = "github.com/llamandcoco/infra-modules//terraform/eventbridge?ref=${include.env.locals.eventbridge_ref}"
 }
 
-dependency "echo_sqs" {
-  config_path = "../chatbot-echo-sqs"
+dependency "sr_sqs" {
+  config_path = "../chatbot-command-sr-sqs"
   mock_outputs = {
     queue_arn = "arn:aws:sqs:ca-central-1:123456789012:mock-queue"
     dlq_arn   = "arn:aws:sqs:ca-central-1:123456789012:mock-queue-dlq"
   }
 }
 
-dependency "deploy_sqs" {
-  config_path = "../chatbot-deploy-sqs"
-  mock_outputs = {
-    queue_arn = "arn:aws:sqs:ca-central-1:123456789012:mock-queue"
-    dlq_arn   = "arn:aws:sqs:ca-central-1:123456789012:mock-queue-dlq"
-  }
-}
-
-dependency "status_sqs" {
-  config_path = "../chatbot-status-sqs"
-  mock_outputs = {
-    queue_arn = "arn:aws:sqs:ca-central-1:123456789012:mock-queue"
-    dlq_arn   = "arn:aws:sqs:ca-central-1:123456789012:mock-queue-dlq"
-  }
-}
-
-dependency "build_sqs" {
-  config_path = "../chatbot-build-sqs"
+dependency "lw_sqs" {
+  config_path = "../chatbot-command-lw-sqs"
   mock_outputs = {
     queue_arn = "arn:aws:sqs:ca-central-1:123456789012:mock-queue"
     dlq_arn   = "arn:aws:sqs:ca-central-1:123456789012:mock-queue-dlq"
@@ -65,10 +49,10 @@ inputs = {
 
   # Multiple rules configuration
   rules = [
-    # Echo command rule
+    # Echo command rule - routes to SR (short-read) queue
     {
       name        = "${local.org_prefix}-${local.environment}-chatbot-echo"
-      description = "Routes echo commands to echo worker queue"
+      description = "Routes echo commands to short-read worker queue"
       enabled     = true
 
       # Event pattern - match echo commands
@@ -80,16 +64,16 @@ inputs = {
         }
       })
 
-      # Targets: Echo SQS Queue
+      # Targets: SR (Short-Read) SQS Queue
       targets = [
         {
-          target_id  = "echo-sqs"
-          arn        = dependency.echo_sqs.outputs.queue_arn
+          target_id  = "sr-sqs"
+          arn        = dependency.sr_sqs.outputs.queue_arn
           input_path = "$.detail" # Pass only the detail portion
 
           # DLQ for failed events
           dead_letter_config = {
-            arn = dependency.echo_sqs.outputs.dlq_arn
+            arn = dependency.sr_sqs.outputs.dlq_arn
           }
 
           # Retry policy
@@ -101,74 +85,10 @@ inputs = {
       ]
     },
 
-    # Deploy command rule
-    {
-      name        = "${local.org_prefix}-${local.environment}-chatbot-deploy"
-      description = "Routes deploy commands to deploy worker queue"
-      enabled     = true
-
-      event_pattern = jsonencode({
-        source      = ["slack.command"]
-        detail-type = ["Slack Command"]
-        detail = {
-          command = ["/deploy"]
-        }
-      })
-
-      targets = [
-        {
-          target_id  = "deploy-sqs"
-          arn        = dependency.deploy_sqs.outputs.queue_arn
-          input_path = "$.detail"
-
-          dead_letter_config = {
-            arn = dependency.deploy_sqs.outputs.dlq_arn
-          }
-
-          retry_policy = {
-            maximum_event_age_in_seconds = 3600
-            maximum_retry_attempts       = 3
-          }
-        }
-      ]
-    },
-
-    # Status command rule
-    {
-      name        = "${local.org_prefix}-${local.environment}-chatbot-status"
-      description = "Routes status commands to status worker queue"
-      enabled     = true
-
-      event_pattern = jsonencode({
-        source      = ["slack.command"]
-        detail-type = ["Slack Command"]
-        detail = {
-          command = ["/status"]
-        }
-      })
-
-      targets = [
-        {
-          target_id  = "status-sqs"
-          arn        = dependency.status_sqs.outputs.queue_arn
-          input_path = "$.detail"
-
-          dead_letter_config = {
-            arn = dependency.status_sqs.outputs.dlq_arn
-          }
-
-          retry_policy = {
-            maximum_event_age_in_seconds = 3600
-            maximum_retry_attempts       = 3
-          }
-        }
-      ]
-    },
-
-    # Build command rule
+    # Build command rule - routes to LW (long-write) queue
     {
       name        = "${local.org_prefix}-${local.environment}-chatbot-build"
-      description = "Routes build commands to build worker queue (triggers GitHub Actions)"
+      description = "Routes build commands to long-write worker queue (triggers GitHub Actions)"
       enabled     = true
 
       event_pattern = jsonencode({
@@ -181,12 +101,12 @@ inputs = {
 
       targets = [
         {
-          target_id  = "build-sqs"
-          arn        = dependency.build_sqs.outputs.queue_arn
+          target_id  = "lw-sqs"
+          arn        = dependency.lw_sqs.outputs.queue_arn
           input_path = "$.detail"
 
           dead_letter_config = {
-            arn = dependency.build_sqs.outputs.dlq_arn
+            arn = dependency.lw_sqs.outputs.dlq_arn
           }
 
           retry_policy = {
@@ -202,7 +122,7 @@ inputs = {
     # Enables future extensions: help messages, intent inference, LLM normalization
     {
       name        = "${local.org_prefix}-${local.environment}-chatbot-catch-all"
-      description = "Routes unmatched commands to echo queue for graceful handling"
+      description = "Routes unmatched commands to short-read queue for graceful handling"
       enabled     = true
 
       event_pattern = jsonencode({
@@ -210,7 +130,9 @@ inputs = {
         detail-type = ["Slack Command"]
         detail = {
           command = [{
-            "anything-but" = ["/echo", "/deploy", "/status", "/build"]
+            # Exclude all currently implemented commands
+            # This list must be kept in sync with all command-specific rules above
+            "anything-but" = ["/echo", "/build"]
           }]
         }
       })
@@ -218,7 +140,7 @@ inputs = {
       targets = [
         {
           target_id  = "catch-all-sqs"
-          arn        = dependency.echo_sqs.outputs.queue_arn
+          arn        = dependency.sr_sqs.outputs.queue_arn
           input_path = "$.detail"
         }
       ]

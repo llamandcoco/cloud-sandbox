@@ -1,9 +1,9 @@
 # -----------------------------------------------------------------------------
-# Chatbot Build Worker - Platform
-# cloud-sandbox/aws/10-plt/chatbot-build-worker/terragrunt.hcl
+# Chatbot Short-Read (SR) Unified Worker - Platform
+# cloud-sandbox/aws/10-plt/chatbot-command-sr-worker/terragrunt.hcl
 #
-# Lambda worker for processing build commands from SQS
-# Triggers GitHub Actions workflows to build and upload Lambda artifacts to S3
+# Unified Lambda worker for processing all short-read commands from SQS
+# Handles: echo, status, and future short-read commands
 # -----------------------------------------------------------------------------
 
 include "root" {
@@ -21,14 +21,14 @@ terraform {
 }
 
 dependency "sqs" {
-  config_path = "../chatbot-build-sqs"
+  config_path = "../chatbot-command-sr-sqs"
 }
 
 locals {
   org_prefix    = include.root.locals.org_prefix
   environment   = include.env.locals.environment
-  command       = "build"
-  function_name = "${local.org_prefix}-${local.environment}-chatbot-${local.command}-worker"
+  quadrant      = "sr"
+  function_name = "${local.org_prefix}-${local.environment}-chatbot-command-${local.quadrant}-worker"
 
   # Source configuration
   use_s3         = get_env("USE_S3_ARTIFACTS", "false") == "true"
@@ -36,20 +36,20 @@ locals {
 
   # S3 configuration
   s3_bucket = "${local.org_prefix}-${local.environment}-lambda-artifacts"
-  s3_key    = "${local.environment}/${local.command}/builds/${local.lambda_version}.zip"
+  s3_key    = "${local.environment}/${local.quadrant}/builds/${local.lambda_version}.zip"
 
   # Local development path (use absolute path for terragrunt cache compatibility)
-  local_source = abspath("${get_terragrunt_dir()}/../../../../cloud-apps/applications/chatops/slack-bot/dist/${local.command}-worker.zip")
+  local_source = abspath("${get_terragrunt_dir()}/../../../../cloud-apps/applications/chatops/slack-bot/dist/${local.quadrant}-worker.zip")
 }
 
 inputs = {
   # Lambda configuration
   function_name = local.function_name
-  description   = "Processes build commands and triggers GitHub Actions workflows via repository_dispatch API"
+  description   = "Unified worker for all short-read commands (echo, status, etc.)"
 
   # Runtime
   runtime = "nodejs20.x"
-  handler = "workers/build/index.handler"
+  handler = "workers/sr/index.handler"
 
   # Source configuration (S3 or local)
   filename          = local.use_s3 ? null : local.local_source
@@ -60,13 +60,13 @@ inputs = {
 
   # Performance
   memory_size = 256
-  timeout     = 60 # GitHub API call may take time; less than SQS visibility timeout (65s)
+  timeout     = 10 # Optimized for fast reads (short-read quadrant)
 
   # Architecture
   architectures = ["arm64"] # Graviton2
 
   # Concurrency control
-  reserved_concurrent_executions = 5 # Limit parallel executions
+  reserved_concurrent_executions = 100 # High concurrency for read operations
 
   # Environment variables
   environment_variables = {
@@ -75,6 +75,7 @@ inputs = {
     AWS_PARAMETER_PREFIX = "/${local.org_prefix}/${local.environment}"
     LOG_LEVEL            = "info"
     NODE_ENV             = "production"
+    QUADRANT             = local.quadrant
   }
 
   # SQS Event Source Mapping
@@ -91,7 +92,7 @@ inputs = {
 
       # Scaling
       scaling_config = {
-        maximum_concurrency = 5 # Match reserved_concurrent_executions
+        maximum_concurrency = 100 # Match reserved_concurrent_executions
       }
 
       # Filtering (optional - process all messages)
@@ -109,17 +110,7 @@ inputs = {
         "ssm:GetParameters"
       ]
       resources = [
-        "arn:aws:ssm:ca-central-1:${include.root.locals.account_id}:parameter/laco/plt/aws/secrets/slack/*"
-      ]
-    },
-    # Read GitHub PAT (cross-environment access to common parameter)
-    {
-      effect = "Allow"
-      actions = [
-        "ssm:GetParameter"
-      ]
-      resources = [
-        "arn:aws:ssm:ca-central-1:${include.root.locals.account_id}:parameter/laco/cmn/github/pat/cloud-apps"
+        "arn:aws:ssm:ca-central-1:*:parameter/laco/plt/aws/secrets/slack/*"
       ]
     },
     # SQS permissions (receive/delete)
@@ -161,9 +152,12 @@ inputs = {
   tags = merge(
     include.env.locals.common_tags,
     {
-      Application = "slack-bot"
-      Component   = "build-worker"
-      Command     = "build"
+      Application     = "slack-bot"
+      Component       = "command-sr-worker"
+      Quadrant        = "sr"
+      QuadrantName    = "short-read"
+      CommandCategory = "short-read"
+      SLOTarget       = "p99-500ms"
     }
   )
 }

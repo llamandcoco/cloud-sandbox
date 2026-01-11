@@ -1,9 +1,9 @@
 # -----------------------------------------------------------------------------
-# Chatbot Echo Worker - Platform
-# cloud-sandbox/aws/10-plt/chatbot-echo-worker/terragrunt.hcl
+# Chatbot Long-Write (LW) Unified Worker - Platform
+# cloud-sandbox/aws/10-plt/chatbot-command-lw-worker/terragrunt.hcl
 #
-# Lambda worker for processing echo commands from SQS
-# Responds to Slack with "async <text>"
+# Unified Lambda worker for processing all long-write commands from SQS
+# Handles: build, deploy, and future long-write commands
 # -----------------------------------------------------------------------------
 
 include "root" {
@@ -21,14 +21,14 @@ terraform {
 }
 
 dependency "sqs" {
-  config_path = "../chatbot-echo-sqs"
+  config_path = "../chatbot-command-lw-sqs"
 }
 
 locals {
   org_prefix    = include.root.locals.org_prefix
   environment   = include.env.locals.environment
-  command       = "echo"
-  function_name = "${local.org_prefix}-${local.environment}-chatbot-${local.command}-worker"
+  quadrant      = "lw"
+  function_name = "${local.org_prefix}-${local.environment}-chatbot-command-${local.quadrant}-worker"
 
   # Source configuration
   use_s3         = get_env("USE_S3_ARTIFACTS", "false") == "true"
@@ -36,20 +36,20 @@ locals {
 
   # S3 configuration
   s3_bucket = "${local.org_prefix}-${local.environment}-lambda-artifacts"
-  s3_key    = "${local.environment}/${local.command}/builds/${local.lambda_version}.zip"
+  s3_key    = "${local.environment}/${local.quadrant}/builds/${local.lambda_version}.zip"
 
   # Local development path (use absolute path for terragrunt cache compatibility)
-  local_source = abspath("${get_terragrunt_dir()}/../../../../cloud-apps/applications/chatops/slack-bot/dist/${local.command}-worker.zip")
+  local_source = abspath("${get_terragrunt_dir()}/../../../../cloud-apps/applications/chatops/slack-bot/dist/${local.quadrant}-worker.zip")
 }
 
 inputs = {
   # Lambda configuration
   function_name = local.function_name
-  description   = "Processes echo commands and responds to Slack asynchronously"
+  description   = "Unified worker for all long-write commands (build, deploy, etc.)"
 
   # Runtime
   runtime = "nodejs20.x"
-  handler = "workers/echo/index.handler"
+  handler = "workers/lw/index.handler"
 
   # Source configuration (S3 or local)
   filename          = local.use_s3 ? null : local.local_source
@@ -59,14 +59,14 @@ inputs = {
   s3_object_version = local.use_s3 && get_env("S3_OBJECT_VERSION", "") != "" ? get_env("S3_OBJECT_VERSION", "") : null
 
   # Performance
-  memory_size = 256
-  timeout     = 30 # Less than SQS visibility timeout (35s)
+  memory_size = 512 # More resources for GitHub API + builds
+  timeout     = 120 # Extended for long-write operations; less than SQS visibility timeout (180s)
 
   # Architecture
   architectures = ["arm64"] # Graviton2
 
   # Concurrency control
-  reserved_concurrent_executions = 5 # Limit parallel executions
+  reserved_concurrent_executions = 2 # Limited concurrency to prevent abuse
 
   # Environment variables
   environment_variables = {
@@ -75,6 +75,7 @@ inputs = {
     AWS_PARAMETER_PREFIX = "/${local.org_prefix}/${local.environment}"
     LOG_LEVEL            = "info"
     NODE_ENV             = "production"
+    QUADRANT             = local.quadrant
   }
 
   # SQS Event Source Mapping
@@ -91,7 +92,7 @@ inputs = {
 
       # Scaling
       scaling_config = {
-        maximum_concurrency = 5 # Match reserved_concurrent_executions
+        maximum_concurrency = 2 # Match reserved_concurrent_executions
       }
 
       # Filtering (optional - process all messages)
@@ -109,7 +110,17 @@ inputs = {
         "ssm:GetParameters"
       ]
       resources = [
-        "arn:aws:ssm:ca-central-1:*:parameter/laco/plt/aws/secrets/slack/*"
+        "arn:aws:ssm:ca-central-1:${include.root.locals.account_id}:parameter/laco/plt/aws/secrets/slack/*"
+      ]
+    },
+    # Read GitHub PAT (cross-environment access to common parameter)
+    {
+      effect = "Allow"
+      actions = [
+        "ssm:GetParameter"
+      ]
+      resources = [
+        "arn:aws:ssm:ca-central-1:${include.root.locals.account_id}:parameter/laco/cmn/github/pat/cloud-apps"
       ]
     },
     # SQS permissions (receive/delete)
@@ -151,9 +162,12 @@ inputs = {
   tags = merge(
     include.env.locals.common_tags,
     {
-      Application = "slack-bot"
-      Component   = "echo-worker"
-      Command     = "echo"
+      Application     = "slack-bot"
+      Component       = "command-lw-worker"
+      Quadrant        = "lw"
+      QuadrantName    = "long-write"
+      CommandCategory = "long-write"
+      SLOTarget       = "p95-10min"
     }
   )
 }
