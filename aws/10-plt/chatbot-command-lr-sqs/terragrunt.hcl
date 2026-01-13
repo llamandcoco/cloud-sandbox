@@ -45,7 +45,7 @@ inputs = {
   queue_name = local.queue_name
   fifo_queue = false
 
-  visibility_timeout_seconds = 90    # Buffer for longer read operations (30s+) + retry buffer
+  visibility_timeout_seconds = 90     # Buffer for longer read operations (30s+) + retry buffer
   message_retention_seconds  = 172800 # 2 days retention for longer command life
   max_message_size           = 262144
   delay_seconds              = 0

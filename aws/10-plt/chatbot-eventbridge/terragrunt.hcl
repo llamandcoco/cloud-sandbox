@@ -53,14 +53,14 @@ dependency "sw_sqs" {
 }
 
 locals {
-  org_prefix             = include.root.locals.org_prefix
-  environment            = include.env.locals.environment
-  event_bus_name         = "${local.org_prefix}-${local.environment}-chatbot"
-  short_read_commands    = ["/echo", "/status"]
-  short_write_commands   = ["/scale", "/restart"]
-  long_read_commands     = ["/analyze", "/report"]
-  long_write_commands    = ["/build", "/deploy"]
-  implemented_commands   = concat(
+  org_prefix           = include.root.locals.org_prefix
+  environment          = include.env.locals.environment
+  event_bus_name       = "${local.org_prefix}-${local.environment}-chatbot"
+  short_read_commands  = ["/echo", "/status"]
+  short_write_commands = ["/scale", "/restart"]
+  long_read_commands   = ["/analyze", "/report"]
+  long_write_commands  = ["/build", "/deploy"]
+  implemented_commands = concat(
     local.short_read_commands,
     local.long_write_commands,
     local.long_read_commands,
