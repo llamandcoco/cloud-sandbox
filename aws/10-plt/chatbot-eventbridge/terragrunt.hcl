@@ -62,9 +62,9 @@ locals {
   long_write_commands  = ["/build", "/deploy"]
   implemented_commands = concat(
     local.short_read_commands,
-    local.long_write_commands,
+    local.short_write_commands,
     local.long_read_commands,
-    local.short_write_commands
+    local.long_write_commands
   )
 }
 
