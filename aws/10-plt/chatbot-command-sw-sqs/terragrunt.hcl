@@ -41,7 +41,7 @@ inputs = {
   queue_name = local.queue_name
   fifo_queue = false
 
-  visibility_timeout_seconds = 30
+  visibility_timeout_seconds = 45 # 45s = 20s Lambda timeout + 25s buffer
   message_retention_seconds  = 86400
   max_message_size           = 262144
   delay_seconds              = 0
