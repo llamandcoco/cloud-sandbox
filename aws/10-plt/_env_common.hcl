@@ -34,4 +34,5 @@ locals {
   api_lambda_stack_ref     = "main"
   s3_ref                   = "main"
   cloudwatch_dashboard_ref = "main"
+  dynamodb_ref             = "main"
 }
