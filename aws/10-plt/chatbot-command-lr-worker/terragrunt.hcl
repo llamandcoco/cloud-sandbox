@@ -1,9 +1,9 @@
 # -----------------------------------------------------------------------------
-# Chatbot Short-Read (SR) Unified Worker - Platform
-# cloud-sandbox/aws/10-plt/chatbot-command-sr-worker/terragrunt.hcl
+# Chatbot Long-Read (LR) Unified Worker - Platform
+# cloud-sandbox/aws/10-plt/chatbot-command-lr-worker/terragrunt.hcl
 #
-# Unified Lambda worker for processing all short-read commands from SQS
-# Handles: echo, status, and future short-read commands
+# Unified Lambda worker for processing long-running read commands
+# Handles: /analyze, /report, and future long-read commands
 # -----------------------------------------------------------------------------
 
 include "root" {
@@ -21,54 +21,44 @@ terraform {
 }
 
 dependency "sqs" {
-  config_path = "../chatbot-command-sr-sqs"
+  config_path = "../chatbot-command-lr-sqs"
 }
 
 locals {
   org_prefix    = include.root.locals.org_prefix
   environment   = include.env.locals.environment
-  quadrant      = "sr"
+  quadrant      = "lr"
   function_name = "${local.org_prefix}-${local.environment}-chatbot-command-${local.quadrant}-worker"
 
-  # Source configuration
   use_s3         = get_env("USE_S3_ARTIFACTS", "false") == "true"
   lambda_version = get_env("LAMBDA_VERSION", "latest")
 
-  # S3 configuration
   s3_bucket = "${local.org_prefix}-${local.environment}-lambda-artifacts"
   s3_key    = "${local.environment}/${local.quadrant}/builds/${local.lambda_version}.zip"
 
-  # Local development path (use absolute path for terragrunt cache compatibility)
   local_source = abspath("${get_terragrunt_dir()}/../../../../cloud-apps/applications/chatops/slack-bot/dist/${local.quadrant}-worker.zip")
 }
 
 inputs = {
-  # Lambda configuration
   function_name = local.function_name
-  description   = "Unified worker for all short-read commands (echo, status, etc.)"
+  description   = "Unified worker for all long-read commands (analyze, report, etc.)"
 
-  # Runtime
   runtime = "nodejs20.x"
-  handler = "workers/sr/index.handler"
+  handler = "workers/lr/index.handler"
 
-  # Source configuration (S3 or local)
   filename          = local.use_s3 ? null : local.local_source
   source_code_hash  = local.use_s3 ? null : filebase64sha256(local.local_source)
   s3_bucket         = local.use_s3 ? local.s3_bucket : null
   s3_key            = local.use_s3 ? local.s3_key : null
   s3_object_version = local.use_s3 && get_env("S3_OBJECT_VERSION", "") != "" ? get_env("S3_OBJECT_VERSION", "") : null
 
-  # Performance
-  memory_size = 256
-  timeout     = 10 # Optimized for fast reads (short-read quadrant)
+  memory_size = 512
+  timeout     = 45
 
-  # Architecture
-  architectures = ["arm64"] # Graviton2
+  architectures = ["arm64"]
 
-  # Concurrency control
-  reserved_concurrent_executions = 100 # High concurrency for read operations
+  reserved_concurrent_executions = 10
 
-  # Environment variables
   environment_variables = {
     ORG_PREFIX           = local.org_prefix
     ENVIRONMENT          = local.environment
@@ -78,31 +68,24 @@ inputs = {
     QUADRANT             = local.quadrant
   }
 
-  # SQS Event Source Mapping
   event_source_mappings = [
     {
       event_source_arn = dependency.sqs.outputs.queue_arn
 
-      # Batch settings
-      batch_size                         = 1 # Process one message at a time
-      maximum_batching_window_in_seconds = 0 # No batching delay
+      batch_size                         = 1
+      maximum_batching_window_in_seconds = 0
 
-      # Error handling
       function_response_types = ["ReportBatchItemFailures"]
 
-      # Scaling
       scaling_config = {
-        maximum_concurrency = 100 # Match reserved_concurrent_executions
+        maximum_concurrency = 10
       }
 
-      # Filtering (optional - process all messages)
       filter_criteria = null
     }
   ]
 
-  # IAM permissions
   policy_statements = [
-    # Read Slack secrets
     {
       effect = "Allow"
       actions = [
@@ -113,7 +96,6 @@ inputs = {
         "arn:aws:ssm:ca-central-1:${include.root.locals.account_id}:parameter/laco/plt/aws/secrets/slack/*"
       ]
     },
-    # SQS permissions (receive/delete)
     {
       effect = "Allow"
       actions = [
@@ -126,7 +108,6 @@ inputs = {
         dependency.sqs.outputs.queue_arn
       ]
     },
-    # X-Ray tracing
     {
       effect = "Allow"
       actions = [
@@ -134,49 +115,26 @@ inputs = {
         "xray:PutTelemetryRecords"
       ]
       resources = ["*"]
-    },
-    # Status command - Resource tagging API
-    {
-      effect = "Allow"
-      actions = [
-        "tag:GetResources"
-      ]
-      resources = ["*"]
-    },
-    # Status command - AWS service read permissions
-    {
-      effect = "Allow"
-      actions = [
-        "ecs:DescribeServices",
-        "lambda:GetFunctionConfiguration",
-        "dynamodb:DescribeTable",
-        "cloudwatch:GetMetricData"
-      ]
-      resources = ["*"]
     }
   ]
 
-  # VPC configuration
   vpc_config = null
 
-  # Logging
   log_retention_days = 7
 
-  # Observability - X-Ray tracing
   tracing_config = {
-    mode = "Active" # Enable X-Ray distributed tracing
+    mode = "Active"
   }
 
-  # Tags
   tags = merge(
     include.env.locals.common_tags,
     {
       Application     = "slack-bot"
-      Component       = "command-sr-worker"
-      Quadrant        = "sr"
-      QuadrantName    = "short-read"
-      CommandCategory = "short-read"
-      SLOTarget       = "p99-500ms"
+      Component       = "command-lr-worker"
+      Quadrant        = "lr"
+      QuadrantName    = "long-read"
+      CommandCategory = "long-read"
+      SLOTarget       = "p99-30s"
     }
   )
 }

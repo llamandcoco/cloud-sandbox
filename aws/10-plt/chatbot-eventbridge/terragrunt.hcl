@@ -36,10 +36,36 @@ dependency "lw_sqs" {
   }
 }
 
+dependency "lr_sqs" {
+  config_path = "../chatbot-command-lr-sqs"
+  mock_outputs = {
+    queue_arn = "arn:aws:sqs:ca-central-1:123456789012:mock-queue"
+    dlq_arn   = "arn:aws:sqs:ca-central-1:123456789012:mock-queue-dlq"
+  }
+}
+
+dependency "sw_sqs" {
+  config_path = "../chatbot-command-sw-sqs"
+  mock_outputs = {
+    queue_arn = "arn:aws:sqs:ca-central-1:123456789012:mock-queue"
+    dlq_arn   = "arn:aws:sqs:ca-central-1:123456789012:mock-queue-dlq"
+  }
+}
+
 locals {
-  org_prefix     = include.root.locals.org_prefix
-  environment    = include.env.locals.environment
-  event_bus_name = "${local.org_prefix}-${local.environment}-chatbot"
+  org_prefix           = include.root.locals.org_prefix
+  environment          = include.env.locals.environment
+  event_bus_name       = "${local.org_prefix}-${local.environment}-chatbot"
+  short_read_commands  = ["/echo", "/status"]
+  short_write_commands = ["/scale", "/restart"]
+  long_read_commands   = ["/analyze", "/report"]
+  long_write_commands  = ["/build", "/deploy"]
+  implemented_commands = concat(
+    local.short_read_commands,
+    local.short_write_commands,
+    local.long_read_commands,
+    local.long_write_commands
+  )
 }
 
 inputs = {
@@ -49,10 +75,10 @@ inputs = {
 
   # Multiple rules configuration
   rules = [
-    # Echo command rule - routes to SR (short-read) queue
+    # Short-read command rule - routes to SR (short-read) queue
     {
-      name        = "${local.org_prefix}-${local.environment}-chatbot-echo"
-      description = "Routes echo commands to short-read worker queue"
+      name        = "${local.org_prefix}-${local.environment}-chatbot-sr-command"
+      description = "Routes short-read commands to short-read worker queue"
       enabled     = true
 
       # Event pattern - match echo commands
@@ -60,7 +86,7 @@ inputs = {
         source      = ["slack.command"]
         detail-type = ["Slack Command"]
         detail = {
-          command = ["/echo"]
+          command = local.short_read_commands
         }
       })
 
@@ -85,17 +111,81 @@ inputs = {
       ]
     },
 
-    # Build command rule - routes to LW (long-write) queue
+    # Short-write command rule - routes to SW worker queue
     {
-      name        = "${local.org_prefix}-${local.environment}-chatbot-build"
-      description = "Routes build commands to long-write worker queue (triggers GitHub Actions)"
+      name        = "${local.org_prefix}-${local.environment}-chatbot-sw-command"
+      description = "Routes short-write commands to short-write worker queue"
       enabled     = true
 
       event_pattern = jsonencode({
         source      = ["slack.command"]
         detail-type = ["Slack Command"]
         detail = {
-          command = ["/build"]
+          command = local.short_write_commands
+        }
+      })
+
+      targets = [
+        {
+          target_id  = "sw-sqs"
+          arn        = dependency.sw_sqs.outputs.queue_arn
+          input_path = "$.detail"
+
+          dead_letter_config = {
+            arn = dependency.sw_sqs.outputs.dlq_arn
+          }
+
+          retry_policy = {
+            maximum_event_age_in_seconds = 3600
+            maximum_retry_attempts       = 3
+          }
+        }
+      ]
+    },
+
+    # Long-read command rule - routes to LR worker queue
+    {
+      name        = "${local.org_prefix}-${local.environment}-chatbot-lr-command"
+      description = "Routes long-read commands to long-read worker queue"
+      enabled     = true
+
+      event_pattern = jsonencode({
+        source      = ["slack.command"]
+        detail-type = ["Slack Command"]
+        detail = {
+          command = local.long_read_commands
+        }
+      })
+
+      targets = [
+        {
+          target_id  = "lr-sqs"
+          arn        = dependency.lr_sqs.outputs.queue_arn
+          input_path = "$.detail"
+
+          dead_letter_config = {
+            arn = dependency.lr_sqs.outputs.dlq_arn
+          }
+
+          retry_policy = {
+            maximum_event_age_in_seconds = 3600
+            maximum_retry_attempts       = 3
+          }
+        }
+      ]
+    },
+
+    # Long-write command rule - routes to LW (long-write) queue
+    {
+      name        = "${local.org_prefix}-${local.environment}-chatbot-lw-command"
+      description = "Routes long-write commands to long-write worker queue (triggers GitHub Actions)"
+      enabled     = true
+
+      event_pattern = jsonencode({
+        source      = ["slack.command"]
+        detail-type = ["Slack Command"]
+        detail = {
+          command = local.long_write_commands
         }
       })
 
@@ -132,7 +222,7 @@ inputs = {
           command = [{
             # Exclude all currently implemented commands
             # This list must be kept in sync with all command-specific rules above
-            "anything-but" = ["/echo", "/build"]
+            "anything-but" = local.implemented_commands
           }]
         }
       })
