@@ -110,7 +110,7 @@ inputs = {
         "ssm:GetParameters"
       ]
       resources = [
-        "arn:aws:ssm:ca-central-1:*:parameter/laco/plt/aws/secrets/slack/*"
+        "arn:aws:ssm:ca-central-1:${include.root.locals.account_id}:parameter/laco/plt/aws/secrets/slack/*"
       ]
     },
     # SQS permissions (receive/delete)
